@@ -1,5 +1,5 @@
 [package]
-name = "rust-lox"
+name = "lox"
 version = "0.1.0"
 authors = ["brandly <brandly13@gmail.com>"]
 edition = "2018"
