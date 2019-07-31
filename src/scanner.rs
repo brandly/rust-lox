@@ -1,7 +1,30 @@
 use crate::token::{Token, TokenType};
-use std::error::Error;
 use std::iter;
 use std::str::Chars;
+use std::fmt;
+use std::error;
+
+#[derive(Debug)]
+pub enum ScanError {
+    UnexpectedChar(char, i32)
+}
+impl fmt::Display for ScanError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            ScanError::UnexpectedChar(c, line) => {
+                write!(f, "Unexpected character {} at line {}", c, line)
+            }
+        }
+    }
+}
+impl error::Error for ScanError {
+    fn description(&self) -> &str {
+        match *self {
+            ScanError::UnexpectedChar(_, _) =>
+                "Unexpected character"
+        }
+    }
+}
 
 pub struct Scanner<'a> {
     source: iter::Peekable<Chars<'a>>,
@@ -15,7 +38,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    pub fn scan_tokens(&mut self) -> Result<Vec<Token>, Box<dyn Error>> {
+    pub fn scan_tokens(&mut self) -> Result<Vec<Token>, ScanError> {
         let mut tokens: Vec<Token> = Vec::new();
 
         loop {
@@ -23,7 +46,7 @@ impl<'a> Scanner<'a> {
             match c {
                 Some(c) => {
                     if c.is_whitespace() {
-                        continue;;
+                        continue;
                     }
                     tokens.push(self.scan_token(c)?);
                     ();
@@ -42,7 +65,7 @@ impl<'a> Scanner<'a> {
         Ok(tokens)
     }
 
-    fn scan_token(&mut self, c: char) -> Result<Token, Box<dyn Error>> {
+    fn scan_token(&self, c: char) -> Result<Token, ScanError> {
         match c {
             '(' => Ok(Token::basic(TokenType::LeftParen, self.line)),
             ')' => Ok(Token::basic(TokenType::RightParen, self.line)),
@@ -54,7 +77,7 @@ impl<'a> Scanner<'a> {
             '+' => Ok(Token::basic(TokenType::Plus, self.line)),
             ';' => Ok(Token::basic(TokenType::Semicolon, self.line)),
             '*' => Ok(Token::basic(TokenType::Star, self.line)),
-            _ => panic!("don't know that char: {}", c),
+            c => Err(ScanError::UnexpectedChar(c, self.line)),
         }
     }
 }

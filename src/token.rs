@@ -4,8 +4,7 @@ pub struct Token {
     pub type_: TokenType,
     pub lexeme: String,
     // literal ?
-    pub line: i32, // TODO: toString, need to impl trait
-                   // https://doc.rust-lang.org/rust-by-example/hello/print/print_display.html
+    pub line: i32,
 }
 impl Token {
     pub fn basic(type_: TokenType, line: i32) -> Token {
@@ -17,7 +16,6 @@ impl Token {
     }
 }
 impl fmt::Display for Token {
-    // This trait requires `fmt` with this exact signature.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?} {}", self.type_, self.lexeme)
     }
