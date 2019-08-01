@@ -176,3 +176,30 @@ impl<'a> Scanner<'a> {
         out.parse().unwrap()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn to_token(type_: TT) -> Token {
+        Token::basic(type_, 0)
+    }
+
+    #[test]
+    fn test_string() {
+        let mut scanner = Scanner::new("(\"hello\");");
+        let tokens = scanner.scan_tokens().unwrap();
+
+        let expected: Vec<Token> = vec![
+            TT::LeftParen,
+            TT::String("hello".to_string()),
+            TT::RightParen,
+            TT::Semicolon,
+            TT::EOF,
+        ]
+        .into_iter()
+        .map(to_token)
+        .collect();
+        assert_eq!(tokens, expected);
+    }
+}
