@@ -1,4 +1,4 @@
-use crate::token::{Token, TokenType};
+use crate::token::{Token, TokenType as TT};
 use std::iter;
 use std::str::Chars;
 use std::fmt;
@@ -55,7 +55,7 @@ impl<'a> Scanner<'a> {
                     tokens.push(Token {
                         line: self.line,
                         lexeme: String::from(""),
-                        type_: TokenType::EOF,
+                        type_: TT::EOF,
                     });
                     break;
                 }
@@ -66,17 +66,18 @@ impl<'a> Scanner<'a> {
     }
 
     fn scan_token(&self, c: char) -> Result<Token, ScanError> {
+        let basic = | type_ | Ok(Token::basic(type_, self.line));
         match c {
-            '(' => Ok(Token::basic(TokenType::LeftParen, self.line)),
-            ')' => Ok(Token::basic(TokenType::RightParen, self.line)),
-            '{' => Ok(Token::basic(TokenType::LeftBrace, self.line)),
-            '}' => Ok(Token::basic(TokenType::RightBrace, self.line)),
-            ',' => Ok(Token::basic(TokenType::Comma, self.line)),
-            '.' => Ok(Token::basic(TokenType::Dot, self.line)),
-            '-' => Ok(Token::basic(TokenType::Minus, self.line)),
-            '+' => Ok(Token::basic(TokenType::Plus, self.line)),
-            ';' => Ok(Token::basic(TokenType::Semicolon, self.line)),
-            '*' => Ok(Token::basic(TokenType::Star, self.line)),
+            '(' => basic(TT::LeftParen),
+            ')' => basic(TT::RightParen),
+            '{' => basic(TT::LeftBrace),
+            '}' => basic(TT::RightBrace),
+            ',' => basic(TT::Comma),
+            '.' => basic(TT::Dot),
+            '-' => basic(TT::Minus),
+            '+' => basic(TT::Plus),
+            ';' => basic(TT::Semicolon),
+            '*' => basic(TT::Star),
             c => Err(ScanError::UnexpectedChar(c, self.line)),
         }
     }
