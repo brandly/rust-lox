@@ -5,6 +5,8 @@ use std::fmt;
 use std::iter;
 use std::str::Chars;
 
+type Result<T> = std::result::Result<T, ScanError>;
+
 #[derive(Debug)]
 pub enum ScanError {
     UnexpectedChar(char, i32),
@@ -67,7 +69,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    pub fn scan_tokens(&mut self) -> Result<Vec<Token>, ScanError> {
+    pub fn scan_tokens(&mut self) -> Result<Vec<Token>> {
         let mut tokens: Vec<Token> = Vec::new();
 
         loop {
@@ -92,7 +94,7 @@ impl<'a> Scanner<'a> {
         Ok(tokens)
     }
 
-    fn scan_token(&mut self, c: char) -> Result<Token, ScanError> {
+    fn scan_token(&mut self, c: char) -> Result<Token> {
         let line = self.line;
         let basic = |type_| Ok(Token::new(type_, line));
         match c {
@@ -159,7 +161,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn string(&mut self) -> Result<TT, ScanError> {
+    fn string(&mut self) -> Result<TT> {
         let mut string = String::new();
 
         loop {
@@ -186,7 +188,7 @@ impl<'a> Scanner<'a> {
         }
 
         if self.source.peek() == Some(&'.') {
-            // no `peekNext` so we've gotta consume the period...
+            // TODO: no `peekNext` so we've gotta consume the period...
             out.push(self.source.next().unwrap());
             while self.source.peek().map(|c| c.is_ascii_digit()) == Some(true) {
                 out.push(self.source.next().unwrap());
@@ -196,7 +198,7 @@ impl<'a> Scanner<'a> {
         out.parse().unwrap()
     }
 
-    fn identifier(&mut self, start: char) -> Result<Token, ScanError> {
+    fn identifier(&mut self, start: char) -> Result<Token> {
         let mut id = start.to_string();
 
         loop {
