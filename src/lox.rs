@@ -26,7 +26,7 @@ fn run(source: &str) -> Result<(), Box<dyn Error>> {
     let tokens = scanner.scan_tokens()?;
 
     for token in tokens {
-        println!("TOKEN: {}", token);
+        println!("{}", token);
     }
     Ok(())
 }

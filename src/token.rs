@@ -17,7 +17,7 @@ impl Token {
 }
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?} {}", self.type_, self.lexeme)
+        write!(f, "{}: {:?} {}", self.line, self.type_, self.lexeme)
     }
 }
 
@@ -70,4 +70,5 @@ pub enum TokenType {
     While,
 
     EOF,
+    Comment(String),
 }

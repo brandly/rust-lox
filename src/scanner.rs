@@ -45,6 +45,9 @@ impl<'a> Scanner<'a> {
             match c {
                 Some(c) => {
                     if c.is_whitespace() {
+                        if c == '\n' {
+                            self.line += 1;
+                        }
                         continue;
                     }
                     tokens.push(self.scan_token(c)?);
@@ -98,6 +101,17 @@ impl<'a> Scanner<'a> {
             } else {
                 TT::Greater
             }),
+            '/' => {
+                if self.match_('/') {
+                    let mut comment = String::new();
+                    while self.source.peek() != Some(&'\n') && self.source.peek() != None {
+                        comment.push(self.source.next().unwrap());
+                    }
+                    basic(TT::Comment(comment))
+                } else {
+                    basic(TT::Slash)
+                }
+            }
             c => Err(ScanError::UnexpectedChar(c, self.line)),
         }
     }
