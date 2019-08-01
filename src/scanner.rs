@@ -182,21 +182,43 @@ mod tests {
         Token::basic(type_, 0)
     }
 
+    fn to_tokens(types: Vec<TT>) -> Vec<Token> {
+        types.into_iter().map(to_token).collect()
+    }
+
     #[test]
     fn test_string() {
         let mut scanner = Scanner::new("(\"hello\");");
-        let tokens = scanner.scan_tokens().unwrap();
 
-        let expected: Vec<Token> = vec![
-            TT::LeftParen,
-            TT::String("hello".to_string()),
-            TT::RightParen,
-            TT::Semicolon,
-            TT::EOF,
-        ]
-        .into_iter()
-        .map(to_token)
-        .collect();
-        assert_eq!(tokens, expected);
+        assert_eq!(
+            scanner.scan_tokens().unwrap(),
+            to_tokens(vec![
+                TT::LeftParen,
+                TT::String("hello".to_string()),
+                TT::RightParen,
+                TT::Semicolon,
+                TT::EOF,
+            ])
+        );
+    }
+
+    #[test]
+    fn test_basic_number() {
+        let mut scanner = Scanner::new("420");
+
+        assert_eq!(
+            scanner.scan_tokens().unwrap(),
+            to_tokens(vec![TT::Number(420.), TT::EOF,])
+        );
+    }
+
+    #[test]
+    fn test_number_with_decimal() {
+        let mut scanner = Scanner::new("4.20");
+
+        assert_eq!(
+            scanner.scan_tokens().unwrap(),
+            to_tokens(vec![TT::Number(4.20), TT::EOF,])
+        );
     }
 }
