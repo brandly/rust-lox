@@ -48,7 +48,7 @@ pub enum TokenType {
 
     // Literals.
     Identifier,
-    String,
+    String(String),
     Number,
 
     // Keywords.

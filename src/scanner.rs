@@ -7,12 +7,16 @@ use std::str::Chars;
 #[derive(Debug)]
 pub enum ScanError {
     UnexpectedChar(char, i32),
+    UnterminatedString(i32),
 }
 impl fmt::Display for ScanError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             ScanError::UnexpectedChar(c, line) => {
                 write!(f, "Unexpected character {} at line {}", c, line)
+            }
+            ScanError::UnterminatedString(line) => {
+                write!(f, "Unterminated string at line {}", line)
             }
         }
     }
@@ -21,6 +25,7 @@ impl error::Error for ScanError {
     fn description(&self) -> &str {
         match *self {
             ScanError::UnexpectedChar(_, _) => "Unexpected character",
+            ScanError::UnterminatedString(_) => "Unterminated string",
         }
     }
 }
@@ -51,7 +56,6 @@ impl<'a> Scanner<'a> {
                         continue;
                     }
                     tokens.push(self.scan_token(c)?);
-                    ();
                 }
                 None => {
                     tokens.push(Token {
@@ -112,6 +116,7 @@ impl<'a> Scanner<'a> {
                     basic(TT::Slash)
                 }
             }
+            '"' => self.string().and_then(basic),
             c => Err(ScanError::UnexpectedChar(c, self.line)),
         }
     }
@@ -123,5 +128,26 @@ impl<'a> Scanner<'a> {
         } else {
             false
         }
+    }
+
+    fn string(&mut self) -> Result<TT, ScanError> {
+        let mut string = String::new();
+
+        // TODO: write tests, refactor with a match
+        while self.source.peek() != Some(&'"') && self.source.peek() != None {
+            if self.source.peek() == Some(&'\n') {
+                self.line += 1;
+            }
+            string.push(self.source.next().unwrap());
+        }
+
+        if self.source.peek() == None {
+            return Err(ScanError::UnterminatedString(self.line));
+        }
+
+        // Consume closing "
+        self.source.next();
+
+        Ok(TT::String(string))
     }
 }
