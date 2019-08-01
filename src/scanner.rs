@@ -120,6 +120,8 @@ impl<'a> Scanner<'a> {
             c => {
                 if c.is_ascii_digit() {
                     basic(TT::Number(self.digit(c)))
+                } else if is_alpha(c) {
+                    self.identifier(c)
                 } else {
                     Err(ScanError::UnexpectedChar(c, self.line))
                 }
@@ -172,6 +174,32 @@ impl<'a> Scanner<'a> {
 
         out.parse().unwrap()
     }
+
+    fn identifier(&mut self, start: char) -> Result<Token, ScanError> {
+        let mut id = start.to_string();
+
+        loop {
+            match self.source.peek() {
+                Some(c) => {
+                    if is_alphanumeric(*c) {
+                        id.push(self.source.next().unwrap());
+                    } else {
+                        break;
+                    }
+                }
+                None => break,
+            }
+        }
+        Ok(Token::basic(TT::Identifier(id), self.line))
+    }
+}
+
+fn is_alpha(c: char) -> bool {
+    c.is_ascii_alphabetic() || c == '_'
+}
+
+fn is_alphanumeric(c: char) -> bool {
+    is_alpha(c) || c.is_ascii_digit()
 }
 
 #[cfg(test)]
@@ -219,6 +247,21 @@ mod tests {
         assert_eq!(
             scanner.scan_tokens().unwrap(),
             to_tokens(vec![TT::Number(4.20), TT::EOF,])
+        );
+    }
+
+    #[test]
+    fn test_id() {
+        let mut scanner = Scanner::new("abc = 123");
+
+        assert_eq!(
+            scanner.scan_tokens().unwrap(),
+            to_tokens(vec![
+                TT::Identifier("abc".to_string()),
+                TT::Equal,
+                TT::Number(123.),
+                TT::EOF,
+            ])
         );
     }
 }
