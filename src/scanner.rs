@@ -139,22 +139,19 @@ impl<'a> Scanner<'a> {
     fn string(&mut self) -> Result<TT, ScanError> {
         let mut string = String::new();
 
-        // TODO: write tests, refactor with a match
-        while self.source.peek() != Some(&'"') && self.source.peek() != None {
-            if self.source.peek() == Some(&'\n') {
-                self.line += 1;
+        loop {
+            match self.source.next() {
+                None => return Err(ScanError::UnterminatedString(self.line)),
+                Some('\n') => {
+                    self.line += 1;
+                    string.push('\n');
+                }
+                Some('"') => {
+                    return Ok(TT::String(string));
+                }
+                Some(c) => string.push(c),
             }
-            string.push(self.source.next().unwrap());
         }
-
-        if self.source.peek() == None {
-            return Err(ScanError::UnterminatedString(self.line));
-        }
-
-        // Consume closing "
-        self.source.next();
-
-        Ok(TT::String(string))
     }
 
     fn digit(&mut self, start: char) -> f64 {
