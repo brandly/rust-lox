@@ -83,11 +83,7 @@ impl<'a> Scanner<'a> {
                     tokens.push(self.scan_token(c)?);
                 }
                 None => {
-                    tokens.push(Token {
-                        line: self.line,
-                        lexeme: String::from(""),
-                        type_: TT::EOF,
-                    });
+                    tokens.push(Token::new(TT::EOF, self.line));
                     break;
                 }
             }
@@ -98,7 +94,7 @@ impl<'a> Scanner<'a> {
 
     fn scan_token(&mut self, c: char) -> Result<Token, ScanError> {
         let line = self.line;
-        let basic = |type_| Ok(Token::basic(type_, line));
+        let basic = |type_| Ok(Token::new(type_, line));
         match c {
             '(' => basic(TT::LeftParen),
             ')' => basic(TT::RightParen),
@@ -218,10 +214,9 @@ impl<'a> Scanner<'a> {
 
         // TODO: `&*` seems v hacky
         match self.keywords.get(&*id) {
-            Some(type_) => Ok(Token::basic(type_.clone(), self.line)),
-            None => Ok(Token::basic(TT::Identifier(id), self.line))
+            Some(type_) => Ok(Token::new(type_.clone(), self.line)),
+            None => Ok(Token::new(TT::Identifier(id), self.line)),
         }
-
     }
 }
 
@@ -238,7 +233,7 @@ mod tests {
     use super::*;
 
     fn to_token(type_: TT) -> Token {
-        Token::basic(type_, 0)
+        Token::new(type_, 0)
     }
 
     fn to_tokens(types: Vec<TT>) -> Vec<Token> {

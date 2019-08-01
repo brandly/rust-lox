@@ -3,22 +3,17 @@ use std::fmt;
 #[derive(Debug, PartialEq, Clone)]
 pub struct Token {
     pub type_: TokenType,
-    pub lexeme: String,
     // literal ?
     pub line: i32,
 }
 impl Token {
-    pub fn basic(type_: TokenType, line: i32) -> Token {
-        Token {
-            type_,
-            lexeme: String::from(""),
-            line,
-        }
+    pub fn new(type_: TokenType, line: i32) -> Token {
+        Token { type_, line }
     }
 }
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}: {:?} {}", self.line, self.type_, self.lexeme)
+        write!(f, "{}: {:?}", self.line, self.type_)
     }
 }
 
