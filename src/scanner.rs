@@ -165,6 +165,14 @@ impl<'a> Scanner<'a> {
             out.push(self.source.next().unwrap());
         }
 
+        if self.source.peek() == Some(&'.') {
+            // no `peekNext` so we've gotta consume the period...
+            out.push(self.source.next().unwrap());
+            while self.source.peek().map(|c| c.is_ascii_digit()) == Some(true) {
+                out.push(self.source.next().unwrap());
+            }
+        }
+
         out.parse().unwrap()
     }
 }
