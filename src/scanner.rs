@@ -1,12 +1,12 @@
 use crate::token::{Token, TokenType as TT};
+use std::error;
+use std::fmt;
 use std::iter;
 use std::str::Chars;
-use std::fmt;
-use std::error;
 
 #[derive(Debug)]
 pub enum ScanError {
-    UnexpectedChar(char, i32)
+    UnexpectedChar(char, i32),
 }
 impl fmt::Display for ScanError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -20,8 +20,7 @@ impl fmt::Display for ScanError {
 impl error::Error for ScanError {
     fn description(&self) -> &str {
         match *self {
-            ScanError::UnexpectedChar(_, _) =>
-                "Unexpected character"
+            ScanError::UnexpectedChar(_, _) => "Unexpected character",
         }
     }
 }
@@ -66,7 +65,7 @@ impl<'a> Scanner<'a> {
     }
 
     fn scan_token(&self, c: char) -> Result<Token, ScanError> {
-        let basic = | type_ | Ok(Token::basic(type_, self.line));
+        let basic = |type_| Ok(Token::basic(type_, self.line));
         match c {
             '(' => basic(TT::LeftParen),
             ')' => basic(TT::RightParen),
