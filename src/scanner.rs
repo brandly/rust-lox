@@ -1,4 +1,5 @@
 use crate::token::{Token, TokenType as TT};
+use std::collections::HashMap;
 use std::error;
 use std::fmt;
 use std::iter;
@@ -33,12 +34,36 @@ impl error::Error for ScanError {
 pub struct Scanner<'a> {
     source: iter::Peekable<Chars<'a>>,
     line: i32,
+    keywords: HashMap<&'static str, TT>,
 }
 impl<'a> Scanner<'a> {
     pub fn new(source: &str) -> Scanner {
+        let keywords = [
+            ("and", TT::And),
+            ("class", TT::Class),
+            ("else", TT::Else),
+            ("false", TT::False),
+            ("for", TT::For),
+            ("fun", TT::Fun),
+            ("if", TT::If),
+            ("nil", TT::Nil),
+            ("or", TT::Or),
+            ("print", TT::Print),
+            ("return", TT::Return),
+            ("super", TT::Super),
+            ("this", TT::This),
+            ("true", TT::True),
+            ("var", TT::Var),
+            ("while", TT::While),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+
         Scanner {
             source: source.chars().peekable(),
             line: 0,
+            keywords,
         }
     }
 
@@ -190,7 +215,13 @@ impl<'a> Scanner<'a> {
                 None => break,
             }
         }
-        Ok(Token::basic(TT::Identifier(id), self.line))
+
+        // TODO: `&*` seems v hacky
+        match self.keywords.get(&*id) {
+            Some(type_) => Ok(Token::basic(type_.clone(), self.line)),
+            None => Ok(Token::basic(TT::Identifier(id), self.line))
+        }
+
     }
 }
 
@@ -260,6 +291,22 @@ mod tests {
                 TT::Identifier("abc".to_string()),
                 TT::Equal,
                 TT::Number(123.),
+                TT::EOF,
+            ])
+        );
+    }
+
+    #[test]
+    fn test_keyword() {
+        let mut scanner = Scanner::new("class Dog {}");
+
+        assert_eq!(
+            scanner.scan_tokens().unwrap(),
+            to_tokens(vec![
+                TT::Class,
+                TT::Identifier("Dog".to_string()),
+                TT::LeftBrace,
+                TT::RightBrace,
                 TT::EOF,
             ])
         );
