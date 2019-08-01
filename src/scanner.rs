@@ -117,7 +117,13 @@ impl<'a> Scanner<'a> {
                 }
             }
             '"' => self.string().and_then(basic),
-            c => Err(ScanError::UnexpectedChar(c, self.line)),
+            c => {
+                if c.is_ascii_digit() {
+                    basic(TT::Number(self.digit(c)))
+                } else {
+                    Err(ScanError::UnexpectedChar(c, self.line))
+                }
+            }
         }
     }
 
@@ -149,5 +155,16 @@ impl<'a> Scanner<'a> {
         self.source.next();
 
         Ok(TT::String(string))
+    }
+
+    fn digit(&mut self, start: char) -> f64 {
+        let mut out = String::new();
+        out.push(start);
+
+        while self.source.peek().map(|c| c.is_ascii_digit()) == Some(true) {
+            out.push(self.source.next().unwrap());
+        }
+
+        out.parse().unwrap()
     }
 }
