@@ -64,8 +64,9 @@ impl<'a> Scanner<'a> {
         Ok(tokens)
     }
 
-    fn scan_token(&self, c: char) -> Result<Token, ScanError> {
-        let basic = |type_| Ok(Token::basic(type_, self.line));
+    fn scan_token(&mut self, c: char) -> Result<Token, ScanError> {
+        let line = self.line;
+        let basic = |type_| Ok(Token::basic(type_, line));
         match c {
             '(' => basic(TT::LeftParen),
             ')' => basic(TT::RightParen),
@@ -77,7 +78,36 @@ impl<'a> Scanner<'a> {
             '+' => basic(TT::Plus),
             ';' => basic(TT::Semicolon),
             '*' => basic(TT::Star),
+            '!' => basic(if self.match_('=') {
+                TT::BangEqual
+            } else {
+                TT::Bang
+            }),
+            '=' => basic(if self.match_('=') {
+                TT::EqualEqual
+            } else {
+                TT::Equal
+            }),
+            '<' => basic(if self.match_('=') {
+                TT::LessEqual
+            } else {
+                TT::Less
+            }),
+            '>' => basic(if self.match_('=') {
+                TT::GreaterEqual
+            } else {
+                TT::Greater
+            }),
             c => Err(ScanError::UnexpectedChar(c, self.line)),
+        }
+    }
+
+    fn match_(&mut self, c: char) -> bool {
+        if self.source.peek() == Some(&c) {
+            self.source.next();
+            true
+        } else {
+            false
         }
     }
 }
