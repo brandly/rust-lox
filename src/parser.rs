@@ -1,5 +1,7 @@
 use crate::expr::{Expr, Value};
 use crate::token::{Token, TokenType as TT};
+use std::error;
+use std::fmt;
 
 type Result<T> = std::result::Result<T, ParseError>;
 
@@ -7,6 +9,21 @@ type Result<T> = std::result::Result<T, ParseError>;
 pub enum ParseError {
     ParseError,
 }
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            ParseError::ParseError => write!(f, "parse error"),
+        }
+    }
+}
+impl error::Error for ParseError {
+    fn description(&self) -> &str {
+        match *self {
+            ParseError::ParseError => "ParseError",
+        }
+    }
+}
+
 pub struct Parser {
     pub tokens: Vec<Token>,
     current: usize,
@@ -17,7 +34,11 @@ impl Parser {
         Self { tokens, current: 0 }
     }
 
-    pub fn expression(&mut self) -> Result<Expr> {
+    pub fn parse(&mut self) -> Result<Expr> {
+        self.expression()
+    }
+
+    fn expression(&mut self) -> Result<Expr> {
         self.equality()
     }
 
@@ -102,6 +123,7 @@ impl Parser {
                 self.consume(TT::RightParen, "Expect ')' after expression.".to_string())?;
                 Expr::Grouping(Box::new(expr))
             }
+            // Expected expression
             _ => return Err(ParseError::ParseError),
         };
 

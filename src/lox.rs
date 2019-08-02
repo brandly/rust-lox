@@ -27,6 +27,6 @@ fn run(source: &str) -> Result<(), Box<dyn Error>> {
     let tokens = scanner.scan_tokens()?;
     let mut parser = Parser::new(tokens);
 
-    println!("{:?}", parser.expression());
+    println!("{:?}", parser.parse()?.eval());
     Ok(())
 }
