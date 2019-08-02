@@ -1,7 +1,9 @@
 use std::env;
 use std::process;
 
+mod expr;
 mod lox;
+mod parser;
 mod scanner;
 mod token;
 

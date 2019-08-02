@@ -2,7 +2,8 @@ use std::error::Error;
 use std::fs;
 use std::io::{self, Write};
 
-use crate::scanner;
+use crate::parser::Parser;
+use crate::scanner::Scanner;
 
 pub fn run_file(path: &str) -> Result<(), Box<dyn Error>> {
     let contents = fs::read_to_string(path)?;
@@ -22,11 +23,10 @@ pub fn run_prompt() -> Result<(), Box<dyn Error>> {
 }
 
 fn run(source: &str) -> Result<(), Box<dyn Error>> {
-    let mut scanner = scanner::Scanner::new(source);
+    let mut scanner = Scanner::new(source);
     let tokens = scanner.scan_tokens()?;
+    let mut parser = Parser::new(tokens);
 
-    for token in tokens {
-        println!("{}", token);
-    }
+    println!("{:?}", parser.expression());
     Ok(())
 }
