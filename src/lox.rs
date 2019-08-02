@@ -25,8 +25,10 @@ pub fn run_prompt() -> Result<(), Box<dyn Error>> {
 fn run(source: &str) -> Result<(), Box<dyn Error>> {
     let mut scanner = Scanner::new(source);
     let tokens = scanner.scan_tokens()?;
-    let mut parser = Parser::new(tokens);
 
-    println!("{:?}", parser.parse()?.eval());
+    let mut parser = Parser::new(tokens);
+    let expr = parser.parse()?;
+
+    println!("{:?}", expr.eval());
     Ok(())
 }

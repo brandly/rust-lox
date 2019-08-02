@@ -7,19 +7,22 @@ type Result<T> = std::result::Result<T, ParseError>;
 
 #[derive(Debug)]
 pub enum ParseError {
-    ParseError,
+    // ParseError,
+    UnexpectedToken(Token),
 }
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            ParseError::ParseError => write!(f, "parse error"),
+            // ParseError::ParseError => write!(f, "parse error"),
+            ParseError::UnexpectedToken(ref token) => write!(f, "Unexpected token: {}", token),
         }
     }
 }
 impl error::Error for ParseError {
     fn description(&self) -> &str {
         match *self {
-            ParseError::ParseError => "ParseError",
+            // ParseError::ParseError => "ParseError",
+            ParseError::UnexpectedToken(_) => "UnexpectedToken",
         }
     }
 }
@@ -108,8 +111,10 @@ impl Parser {
     }
 
     fn primary(&mut self) -> Result<Expr> {
-        // TODO: better error
-        let token = self.advance().ok_or(ParseError::ParseError)?;
+        let token = match self.advance() {
+            Some(t) => t,
+            None => return Err(ParseError::UnexpectedToken(self.peek().clone()))
+        };
 
         let expr = match token.type_ {
             TT::False => Expr::Literal(Value::Bool(false)),
@@ -124,24 +129,21 @@ impl Parser {
                 Expr::Grouping(Box::new(expr))
             }
             // Expected expression
-            _ => return Err(ParseError::ParseError),
+            _ => return Err(ParseError::UnexpectedToken(token.clone())),
         };
 
         Ok(expr)
     }
 
     fn consume(&mut self, type_: TT, msg: String) -> Result<()> {
-        if let Some(token) = self.advance() {
-            if token.type_ == type_ {
-                return Ok(());
-            } else {
-                eprintln!("{}", msg);
-                return Err(ParseError::ParseError);
-            }
+        let token = self.advance().expect("consume to have a current token");
+        if token.type_ == type_ {
+            return Ok(());
+        } else {
+            // TODO: better type that carries this message
+            eprintln!("{}", msg);
+            return Err(ParseError::UnexpectedToken(token.clone()));
         }
-
-        // Unexpected end of tokens
-        Err(ParseError::ParseError)
     }
 
     fn advance(&mut self) -> Option<&Token> {
@@ -156,20 +158,15 @@ impl Parser {
     }
 
     fn check(&mut self, type_: TT) -> bool {
-        self.peek()
-            .map(|token| token.type_ == type_)
-            .unwrap_or(false)
+        self.peek().type_ == type_
     }
 
-    fn peek(&self) -> Option<&Token> {
-        self.tokens.get(self.current)
+    fn peek(&self) -> &Token {
+        &self.tokens[self.current]
     }
 
     fn is_at_end(&self) -> bool {
-        match self.peek() {
-            Some(token) => token.type_ == TT::EOF,
-            None => panic!("Parse ran out of tokens unexpectedly. Maybe missing an EOF."),
-        }
+        self.peek().type_ == TT::EOF
     }
 }
 
