@@ -113,7 +113,7 @@ impl Parser {
     fn primary(&mut self) -> Result<Expr> {
         let token = match self.advance() {
             Some(t) => t,
-            None => return Err(ParseError::UnexpectedToken(self.peek().clone()))
+            None => return Err(ParseError::UnexpectedToken(self.peek().clone())),
         };
 
         let expr = match token.type_ {

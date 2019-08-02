@@ -11,6 +11,8 @@ pub enum Expr {
 impl Expr {
     // TODO: Result
     // TODO: move this to like a Resolver class?
+    // TODO: runtime errors
+    // https://craftinginterpreters.com/evaluating-expressions.html#detecting-runtime-errors
     pub fn eval(&self) -> Value {
         match &self {
             Expr::Binary(left, op, right) => {
@@ -22,6 +24,8 @@ impl Expr {
                     (Value::Number(left), TT::Minus, Value::Number(right)) => {
                         Value::Number(left - right)
                     }
+                    // TODO: divide by zero runtime error
+                    // (Value::Number(left), TT::Slash, Value::Number(0)) => {
                     (Value::Number(left), TT::Slash, Value::Number(right)) => {
                         Value::Number(left / right)
                     }
@@ -71,7 +75,7 @@ impl Expr {
                         Value::Bool(left != right)
                     }
                     (Value::Nil, TT::BangEqual, Value::Nil) => Value::Bool(false),
-                    (_, _, _) => panic!("Can't eval Binary {:?} {:?} {:?}", left, op, right),
+                    (_, _, _) => panic!("Mismatched Binary types: {:?} {:?} {:?}", left, op, right),
                 }
             }
             Expr::Grouping(expr) => expr.eval(),
@@ -84,7 +88,7 @@ impl Expr {
                     // TODO: isTruthy?
                     (TT::Bang, Value::Bool(boolean)) => Value::Bool(!boolean),
 
-                    (_, _) => panic!("Can't eval Unary {:?} {:?}", op, expr),
+                    (_, _) => panic!("Mismatched Unary types: {:?} {:?}", op, expr),
                 }
             }
         }
