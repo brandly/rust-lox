@@ -42,30 +42,30 @@ impl Parser {
         let mut statements = Vec::new();
 
         while !self.is_at_end() {
-            statements.push(self.statement());
+            statements.push(self.statement()?);
         }
 
         Ok(statements)
     }
 
-    fn statement(&mut self) -> Stmt {
-        if let _ = self.match_(vec![TT::Print]) {
-            return self.printStatement();
+    fn statement(&mut self) -> Result<Stmt> {
+        if let Some(_) = self.match_(vec![TT::Print]) {
+            return self.print_statement();
         }
-        self.expressionStatement()
+        self.expression_statement()
     }
 
-    fn printStatement(&mut self) -> Stmt {
+    fn print_statement(&mut self) -> Result<Stmt> {
         let value = self.expression();
-        self.consume(TT::Semicolon, "Expect ';' after value.".to_string());
+        self.consume(TT::Semicolon, "Expect ';' after value.".to_string())?;
         // TODO: handle Result
-        Stmt::Print(value.unwrap())
+        Ok(Stmt::Print(value.unwrap()))
     }
-    fn expressionStatement(&mut self) -> Stmt {
+    fn expression_statement(&mut self) -> Result<Stmt> {
         let value = self.expression();
-        self.consume(TT::Semicolon, "Expect ';' after expression.".to_string());
+        self.consume(TT::Semicolon, "Expect ';' after expression.".to_string())?;
         // TODO: handle Result
-        Stmt::Expression(value.unwrap())
+        Ok(Stmt::Expression(value.unwrap()))
     }
 
     fn expression(&mut self) -> Result<Expr> {
@@ -85,7 +85,7 @@ impl Parser {
 
     fn match_(&mut self, types: Vec<TT>) -> Option<Token> {
         for type_ in types {
-            if self.check(type_) {
+            if self.check(&type_) {
                 // TODO: cloning my way out of understanding ownership
                 return self.advance().map(|t| t.clone());
             }
@@ -163,7 +163,7 @@ impl Parser {
     }
 
     fn consume(&mut self, type_: TT, msg: String) -> Result<()> {
-        let token = self.advance().expect("consume to have a current token");
+        let token = self.advance().expect(&msg);
         if token.type_ == type_ {
             return Ok(());
         } else {
@@ -184,8 +184,8 @@ impl Parser {
         }
     }
 
-    fn check(&mut self, type_: TT) -> bool {
-        self.peek().type_ == type_
+    fn check(&mut self, type_: &TT) -> bool {
+        self.peek().type_ == *type_
     }
 
     fn peek(&self) -> &Token {
@@ -225,6 +225,45 @@ mod tests {
                 to_token(TT::Plus),
                 Box::new(Expr::Literal(Value::Number(2.)))
             )
+        );
+    }
+
+    #[test]
+    fn test_expression_stmt() {
+        let mut parser = Parser::new(to_tokens(vec![
+            TT::Number(3.),
+            TT::Plus,
+            TT::Number(2.),
+            TT::Semicolon,
+            TT::EOF,
+        ]));
+
+        assert_eq!(
+            parser.parse().unwrap(),
+            vec![Stmt::Expression(Expr::Binary(
+                Box::new(Expr::Literal(Value::Number(3.))),
+                to_token(TT::Plus),
+                Box::new(Expr::Literal(Value::Number(2.)))
+            ))]
+        );
+    }
+
+    #[test]
+    fn test_print_stmt() {
+        let mut parser = Parser::new(to_tokens(vec![
+            TT::Print,
+            TT::Minus,
+            TT::Number(3.),
+            TT::Semicolon,
+            TT::EOF,
+        ]));
+
+        assert_eq!(
+            parser.parse().unwrap(),
+            vec![Stmt::Print(Expr::Unary(
+                to_token(TT::Minus),
+                Box::new(Expr::Literal(Value::Number(3.)))
+            ))]
         );
     }
 }
