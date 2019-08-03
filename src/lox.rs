@@ -31,7 +31,7 @@ fn run(source: &str) -> Result<(), Box<dyn Error>> {
     let statements = parser.parse()?;
 
     let mut interpreter = Interpreter::new();
-    interpreter.execute(&statements);
+    interpreter.execute(&statements)?;
 
     Ok(())
 }
