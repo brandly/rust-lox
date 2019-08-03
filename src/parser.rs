@@ -1,34 +1,8 @@
-use crate::expr::{Expr, Value};
-use crate::stmt::Stmt;
 use crate::token::{Token, TokenType as TT};
 use std::error;
 use std::fmt;
 
 type Result<T> = std::result::Result<T, ParseError>;
-
-#[derive(Debug)]
-pub enum ParseError {
-    // ParseError,
-    UnexpectedToken(Token, String),
-}
-impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            // ParseError::ParseError => write!(f, "parse error"),
-            ParseError::UnexpectedToken(ref token, ref msg) => {
-                write!(f, "Unexpected token: {}. {}", token, msg)
-            }
-        }
-    }
-}
-impl error::Error for ParseError {
-    fn description(&self) -> &str {
-        match *self {
-            // ParseError::ParseError => "ParseError",
-            ParseError::UnexpectedToken(_, _) => "UnexpectedToken",
-        }
-    }
-}
 
 pub struct Parser {
     pub tokens: Vec<Token>,
@@ -263,4 +237,50 @@ mod tests {
             ))]
         );
     }
+}
+
+#[derive(Debug)]
+pub enum ParseError {
+    // ParseError,
+    UnexpectedToken(Token, String),
+}
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            // ParseError::ParseError => write!(f, "parse error"),
+            ParseError::UnexpectedToken(ref token, ref msg) => {
+                write!(f, "Unexpected token: {}. {}", token, msg)
+            }
+        }
+    }
+}
+impl error::Error for ParseError {
+    fn description(&self) -> &str {
+        match *self {
+            // ParseError::ParseError => "ParseError",
+            ParseError::UnexpectedToken(_, _) => "UnexpectedToken",
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Stmt {
+    Expression(Expr),
+    Print(Expr),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Expr {
+    Binary(Box<Expr>, Token, Box<Expr>),
+    Grouping(Box<Expr>),
+    Literal(Value),
+    Unary(Token, Box<Expr>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Value {
+    String(String),
+    Number(f64),
+    Bool(bool),
+    Nil,
 }

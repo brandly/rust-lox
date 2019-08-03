@@ -1,12 +1,10 @@
 use std::env;
 use std::process;
 
-mod expr;
 mod interpreter;
 mod lox;
 mod parser;
 mod scanner;
-mod stmt;
 mod token;
 
 fn main() {

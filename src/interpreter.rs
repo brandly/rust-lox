@@ -1,8 +1,7 @@
 use std::error;
 use std::fmt;
 
-use crate::expr::{Expr, Value};
-use crate::stmt::Stmt;
+use crate::parser::{Expr, Stmt, Value};
 use crate::token::Token;
 use crate::token::TokenType as TT;
 
