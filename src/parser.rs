@@ -1,4 +1,5 @@
 use crate::expr::{Expr, Value};
+use crate::stmt::Stmt;
 use crate::token::{Token, TokenType as TT};
 use std::error;
 use std::fmt;
@@ -37,8 +38,34 @@ impl Parser {
         Self { tokens, current: 0 }
     }
 
-    pub fn parse(&mut self) -> Result<Expr> {
-        self.expression()
+    pub fn parse(&mut self) -> Result<Vec<Stmt>> {
+        let mut statements = Vec::new();
+
+        while !self.is_at_end() {
+            statements.push(self.statement());
+        }
+
+        Ok(statements)
+    }
+
+    fn statement(&mut self) -> Stmt {
+        if let _ = self.match_(vec![TT::Print]) {
+            return self.printStatement();
+        }
+        self.expressionStatement()
+    }
+
+    fn printStatement(&mut self) -> Stmt {
+        let value = self.expression();
+        self.consume(TT::Semicolon, "Expect ';' after value.".to_string());
+        // TODO: handle Result
+        Stmt::Print(value.unwrap())
+    }
+    fn expressionStatement(&mut self) -> Stmt {
+        let value = self.expression();
+        self.consume(TT::Semicolon, "Expect ';' after expression.".to_string());
+        // TODO: handle Result
+        Stmt::Expression(value.unwrap())
     }
 
     fn expression(&mut self) -> Result<Expr> {

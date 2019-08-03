@@ -5,6 +5,7 @@ mod expr;
 mod lox;
 mod parser;
 mod scanner;
+mod stmt;
 mod token;
 
 fn main() {
