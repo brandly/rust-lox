@@ -45,10 +45,12 @@ impl Interpreter {
                     (Value::Number(left), TT::Minus, Value::Number(right)) => {
                         Ok(Value::Number(left - right))
                     }
-                    // TODO: divide by zero runtime error
-                    // (Value::Number(left), TT::Slash, Value::Number(0)) => {
                     (Value::Number(left), TT::Slash, Value::Number(right)) => {
-                        Ok(Value::Number(left / right))
+                        if *right == (0 as f64) {
+                            Err(RuntimeError::RuntimeError(op.clone(), "Cannot divide by zero".to_string()))
+                        } else {
+                            Ok(Value::Number(left / right))
+                        }
                     }
                     (Value::Number(left), TT::Star, Value::Number(right)) => {
                         Ok(Value::Number(left * right))
