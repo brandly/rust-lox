@@ -13,7 +13,7 @@ impl Token {
 }
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}: {:?}", self.line, self.type_)
+        write!(f, "{:?} on line {}", self.type_, self.line)
     }
 }
 

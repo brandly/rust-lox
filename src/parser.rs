@@ -9,13 +9,15 @@ type Result<T> = std::result::Result<T, ParseError>;
 #[derive(Debug)]
 pub enum ParseError {
     // ParseError,
-    UnexpectedToken(Token),
+    UnexpectedToken(Token, String),
 }
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             // ParseError::ParseError => write!(f, "parse error"),
-            ParseError::UnexpectedToken(ref token) => write!(f, "Unexpected token: {}", token),
+            ParseError::UnexpectedToken(ref token, ref msg) => {
+                write!(f, "Unexpected token: {}. {}", token, msg)
+            }
         }
     }
 }
@@ -23,7 +25,7 @@ impl error::Error for ParseError {
     fn description(&self) -> &str {
         match *self {
             // ParseError::ParseError => "ParseError",
-            ParseError::UnexpectedToken(_) => "UnexpectedToken",
+            ParseError::UnexpectedToken(_, _) => "UnexpectedToken",
         }
     }
 }
@@ -57,13 +59,13 @@ impl Parser {
 
     fn print_statement(&mut self) -> Result<Stmt> {
         let value = self.expression();
-        self.consume(TT::Semicolon, "Expect ';' after value.".to_string())?;
+        self.consume(TT::Semicolon, "Expected ';' after value.".to_string())?;
         // TODO: handle Result
         Ok(Stmt::Print(value.unwrap()))
     }
     fn expression_statement(&mut self) -> Result<Stmt> {
         let value = self.expression();
-        self.consume(TT::Semicolon, "Expect ';' after expression.".to_string())?;
+        self.consume(TT::Semicolon, "Expected ';' after expression.".to_string())?;
         // TODO: handle Result
         Ok(Stmt::Expression(value.unwrap()))
     }
@@ -138,10 +140,7 @@ impl Parser {
     }
 
     fn primary(&mut self) -> Result<Expr> {
-        let token = match self.advance() {
-            Some(t) => t,
-            None => return Err(ParseError::UnexpectedToken(self.peek().clone())),
-        };
+        let token = self.advance().expect("advance to next token in primary");
 
         let expr = match token.type_ {
             TT::False => Expr::Literal(Value::Bool(false)),
@@ -152,11 +151,16 @@ impl Parser {
             TT::String(ref str) => Expr::Literal(Value::String(str.clone())),
             TT::LeftParen => {
                 let expr = self.expression()?;
-                self.consume(TT::RightParen, "Expect ')' after expression.".to_string())?;
+                self.consume(TT::RightParen, "Expected ')' after expression.".to_string())?;
                 Expr::Grouping(Box::new(expr))
             }
             // Expected expression
-            _ => return Err(ParseError::UnexpectedToken(token.clone())),
+            _ => {
+                return Err(ParseError::UnexpectedToken(
+                    token.clone(),
+                    "Expected false, true, nil, a number, a string, or a left paren".to_string(),
+                ))
+            }
         };
 
         Ok(expr)
@@ -167,21 +171,14 @@ impl Parser {
         if token.type_ == type_ {
             return Ok(());
         } else {
-            // TODO: better type that carries this message
-            eprintln!("{}", msg);
-            return Err(ParseError::UnexpectedToken(token.clone()));
+            return Err(ParseError::UnexpectedToken(token.clone(), msg));
         }
     }
 
     fn advance(&mut self) -> Option<&Token> {
-        if self.is_at_end() {
-            None
-        } else {
-            let current = self.current;
-            self.current += 1;
-
-            Some(&self.tokens[current])
-        }
+        let current = self.current;
+        self.current += 1;
+        self.tokens.get(current)
     }
 
     fn check(&mut self, type_: &TT) -> bool {
