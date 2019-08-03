@@ -2,6 +2,7 @@ use std::error::Error;
 use std::fs;
 use std::io::{self, Write};
 
+use crate::interpreter::Interpreter;
 use crate::parser::Parser;
 use crate::scanner::Scanner;
 
@@ -29,8 +30,8 @@ fn run(source: &str) -> Result<(), Box<dyn Error>> {
     let mut parser = Parser::new(tokens);
     let statements = parser.parse()?;
 
-    for stmt in statements {
-        stmt.eval()
-    }
+    let mut interpreter = Interpreter::new();
+    interpreter.execute(&statements);
+
     Ok(())
 }

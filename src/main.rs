@@ -2,6 +2,7 @@ use std::env;
 use std::process;
 
 mod expr;
+mod interpreter;
 mod lox;
 mod parser;
 mod scanner;
