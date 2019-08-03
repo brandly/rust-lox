@@ -32,16 +32,14 @@ impl Parser {
     }
 
     fn print_statement(&mut self) -> Result<Stmt> {
-        let value = self.expression();
+        let value = self.expression()?;
         self.consume(TT::Semicolon, "Expected ';' after value.".to_string())?;
-        // TODO: handle Result
-        Ok(Stmt::Print(value.unwrap()))
+        Ok(Stmt::Print(value))
     }
     fn expression_statement(&mut self) -> Result<Stmt> {
-        let value = self.expression();
+        let value = self.expression()?;
         self.consume(TT::Semicolon, "Expected ';' after expression.".to_string())?;
-        // TODO: handle Result
-        Ok(Stmt::Expression(value.unwrap()))
+        Ok(Stmt::Expression(value))
     }
 
     fn expression(&mut self) -> Result<Expr> {
