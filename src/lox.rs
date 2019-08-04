@@ -19,7 +19,11 @@ pub fn run_prompt() -> Result<(), Box<dyn Error>> {
         let mut line = String::new();
         io::stdin().read_line(&mut line)?;
 
-        run(&line)?;
+        if let Err(err) = run(&line) {
+            eprintln!("Error: {}", err);
+        }
+
+        continue;
     }
 }
 
