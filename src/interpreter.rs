@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::error;
 use std::fmt;
 
@@ -7,11 +8,30 @@ use crate::token::TokenType as TT;
 
 type Result<T> = std::result::Result<T, RuntimeError>;
 
-pub struct Interpreter {}
+struct Environment {
+    values: HashMap<String, Value>,
+}
+impl Environment {
+    pub fn define(&mut self, name: String, value: Value) {
+        self.values.insert(name, value);
+    }
+
+    pub fn get(&self, name: String) -> Option<Value> {
+        self.values.get(&name).cloned()
+    }
+}
+
+pub struct Interpreter {
+    env: Environment,
+}
 
 impl Interpreter {
     pub fn new() -> Interpreter {
-        Interpreter {}
+        Interpreter {
+            env: Environment {
+                values: HashMap::new(),
+            },
+        }
     }
 
     pub fn execute(&mut self, stmts: &[Stmt]) -> Result<()> {
@@ -31,10 +51,21 @@ impl Interpreter {
                 println!("{:?}", self.eval(expr)?);
                 Ok(())
             }
-            Stmt::VarDec(token, _expr) => Err(RuntimeError::RuntimeError(
-                token.clone(),
-                "haven't implemented var".to_string(),
-            )),
+            Stmt::VarDec(token, maybe_expr) => match (token.type_.clone(), maybe_expr) {
+                (TT::Identifier(ref name), Some(expr)) => {
+                    let val = self.eval(&expr)?;
+                    self.env.define(name.clone(), val);
+                    Ok(())
+                }
+                (TT::Identifier(ref name), None) => {
+                    self.env.define(name.clone(), Value::Nil);
+                    Ok(())
+                }
+                _ => Err(RuntimeError::RuntimeError(
+                    token.clone(),
+                    "Expected Identifier in VarDec".to_string(),
+                )),
+            },
         }
     }
 
@@ -123,6 +154,12 @@ impl Interpreter {
 
                     (_, _) => panic!("Mismatched Unary types: {:?} {:?}", op, expr),
                 }
+            }
+            Expr::Variable(token, name) => {
+                self.env.get(name.clone()).ok_or(RuntimeError::RuntimeError(
+                    token.clone(),
+                    format!("Undefined variable '{:?}'", name),
+                ))
             }
         }
     }

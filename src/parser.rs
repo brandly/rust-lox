@@ -146,6 +146,7 @@ impl Parser {
             TT::Number(num) => Expr::Literal(Value::Number(num)),
             // TODO: learn about this `ref`
             TT::String(ref str) => Expr::Literal(Value::String(str.clone())),
+            TT::Identifier(ref str) => Expr::Variable(token.clone(), str.clone()),
             TT::LeftParen => {
                 let expr = self.expression()?;
                 self.consume(TT::RightParen, "Expected ')' after expression.".to_string())?;
@@ -306,6 +307,7 @@ pub enum Expr {
     Grouping(Box<Expr>),
     Literal(Value),
     Unary(Token, Box<Expr>),
+    Variable(Token, String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
