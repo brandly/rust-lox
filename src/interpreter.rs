@@ -31,6 +31,10 @@ impl Interpreter {
                 println!("{:?}", self.eval(expr)?);
                 Ok(())
             }
+            Stmt::VarDec(token, _expr) => Err(RuntimeError::RuntimeError(
+                token.clone(),
+                "haven't implemented var".to_string(),
+            )),
         }
     }
 
@@ -47,7 +51,10 @@ impl Interpreter {
                     }
                     (Value::Number(left), TT::Slash, Value::Number(right)) => {
                         if *right == (0 as f64) {
-                            Err(RuntimeError::RuntimeError(op.clone(), "Cannot divide by zero".to_string()))
+                            Err(RuntimeError::RuntimeError(
+                                op.clone(),
+                                "Cannot divide by zero".to_string(),
+                            ))
                         } else {
                             Ok(Value::Number(left / right))
                         }

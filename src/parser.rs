@@ -18,12 +18,37 @@ impl Parser {
         let mut statements = Vec::new();
 
         while !self.is_at_end() {
-            statements.push(self.statement()?);
+            statements.push(self.declaration()?);
         }
 
         Ok(statements)
     }
 
+    fn declaration(&mut self) -> Result<Stmt> {
+        // TODO: synchronize
+        if let Some(_) = self.match_(vec![TT::Var]) {
+            self.var_declaration()
+        } else {
+            self.statement()
+        }
+    }
+    fn var_declaration(&mut self) -> Result<Stmt> {
+        let name = self
+            .consume_identifier("Expected variable name.".to_string())?
+            .clone();
+
+        let mut initial = None;
+        if let Some(_) = self.match_(vec![TT::Equal]) {
+            initial = Some(self.expression()?);
+        }
+
+        self.consume(
+            TT::Semicolon,
+            "Expected semicolon after variable declaration.".to_string(),
+        )?;
+
+        Ok(Stmt::VarDec(name, initial))
+    }
     fn statement(&mut self) -> Result<Stmt> {
         if let Some(_) = self.match_(vec![TT::Print]) {
             return self.print_statement();
@@ -138,12 +163,19 @@ impl Parser {
         Ok(expr)
     }
 
-    fn consume(&mut self, type_: TT, msg: String) -> Result<()> {
+    fn consume(&mut self, type_: TT, msg: String) -> Result<&Token> {
         let token = self.advance().expect(&msg);
         if token.type_ == type_ {
-            return Ok(());
+            return Ok(token);
         } else {
             return Err(ParseError::UnexpectedToken(token.clone(), msg));
+        }
+    }
+    fn consume_identifier(&mut self, msg: String) -> Result<&Token> {
+        if let TT::Identifier(_) = self.peek().type_ {
+            Ok(self.advance().unwrap())
+        } else {
+            Err(ParseError::UnexpectedToken(self.peek().clone(), msg))
         }
     }
 
@@ -265,6 +297,7 @@ impl error::Error for ParseError {
 pub enum Stmt {
     Expression(Expr),
     Print(Expr),
+    VarDec(Token, Option<Expr>),
 }
 
 #[derive(Debug, PartialEq)]
