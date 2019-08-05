@@ -10,6 +10,7 @@ type Result<T> = std::result::Result<T, RuntimeError>;
 
 struct Environment {
     values: HashMap<String, Value>,
+    enclosing: Option<Box<Environment>>
 }
 impl Environment {
     pub fn define(&mut self, name: String, value: Value) {
@@ -17,7 +18,14 @@ impl Environment {
     }
 
     pub fn get(&self, name: String) -> Option<Value> {
-        self.values.get(&name).cloned()
+        if self.is_defined(name.clone()) {
+            self.values.get(&name).cloned()
+        } else {
+            match &self.enclosing {
+                Some(env) => env.get(name),
+                None => None
+            }
+        }
     }
 
     pub fn is_defined(&self, name: String) -> bool {
@@ -34,6 +42,7 @@ impl Interpreter {
         Interpreter {
             env: Environment {
                 values: HashMap::new(),
+                enclosing: None
             },
         }
     }
