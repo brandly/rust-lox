@@ -13,13 +13,13 @@ struct Environment {
     enclosing: Option<Box<Environment>>
 }
 impl Environment {
-    pub fn define(&mut self, name: String, value: Value) {
-        self.values.insert(name, value);
+    pub fn define(&mut self, name: &str, value: Value) {
+        self.values.insert(name.to_string(), value);
     }
 
-    pub fn get(&self, name: String) -> Option<Value> {
-        if self.is_defined(name.clone()) {
-            self.values.get(&name).cloned()
+    pub fn get(&self, name: &str) -> Option<Value> {
+        if self.is_defined(name) {
+            self.values.get(name).cloned()
         } else {
             match &self.enclosing {
                 Some(env) => env.get(name),
@@ -28,8 +28,8 @@ impl Environment {
         }
     }
 
-    pub fn is_defined(&self, name: String) -> bool {
-        self.values.contains_key(&name)
+    pub fn is_defined(&self, name: &str) -> bool {
+        self.values.contains_key(name)
     }
 }
 
@@ -67,11 +67,11 @@ impl Interpreter {
             Stmt::VarDec(token, maybe_expr) => match (token.type_.clone(), maybe_expr) {
                 (TT::Identifier(ref name), Some(expr)) => {
                     let val = self.eval(&expr)?;
-                    self.env.define(name.clone(), val);
+                    self.env.define(name, val);
                     Ok(())
                 }
                 (TT::Identifier(ref name), None) => {
-                    self.env.define(name.clone(), Value::Nil);
+                    self.env.define(name, Value::Nil);
                     Ok(())
                 }
                 _ => Err(RuntimeError::RuntimeError(
@@ -169,7 +169,7 @@ impl Interpreter {
                 }
             }
             Expr::Variable(token, name) => {
-                self.env.get(name.clone()).ok_or(RuntimeError::RuntimeError(
+                self.env.get(name).ok_or(RuntimeError::RuntimeError(
                     token.clone(),
                     format!("Undefined variable '{:?}'", name),
                 ))
@@ -177,9 +177,9 @@ impl Interpreter {
             Expr::Assign(token, expr) => {
                 match &token.type_ {
                     TT::Identifier(name) => {
-                        if self.env.is_defined(name.to_string()) {
+                        if self.env.is_defined(name) {
                             let val = self.eval(expr)?;
-                            self.env.define(name.to_string(), val.clone());
+                            self.env.define(name, val.clone());
                             Ok(val)
                         } else {
                             Err(RuntimeError::RuntimeError(
