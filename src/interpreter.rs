@@ -13,8 +13,8 @@ struct Environment {
     enclosing: Option<Box<Environment>>
 }
 impl Environment {
-    pub fn define(&mut self, name: &str, value: Value) {
-        self.values.insert(name.to_string(), value);
+    pub fn define(&mut self, name: &str, value: &Value) {
+        self.values.insert(name.to_string(), value.clone());
     }
 
     pub fn get(&self, name: &str) -> Option<Value> {
@@ -67,11 +67,11 @@ impl Interpreter {
             Stmt::VarDec(token, maybe_expr) => match (token.type_.clone(), maybe_expr) {
                 (TT::Identifier(ref name), Some(expr)) => {
                     let val = self.eval(&expr)?;
-                    self.env.define(name, val);
+                    self.env.define(name, &val);
                     Ok(())
                 }
                 (TT::Identifier(ref name), None) => {
-                    self.env.define(name, Value::Nil);
+                    self.env.define(name, &Value::Nil);
                     Ok(())
                 }
                 _ => Err(RuntimeError::RuntimeError(
@@ -179,7 +179,7 @@ impl Interpreter {
                     TT::Identifier(name) => {
                         if self.env.is_defined(name) {
                             let val = self.eval(expr)?;
-                            self.env.define(name, val.clone());
+                            self.env.define(name, &val);
                             Ok(val)
                         } else {
                             Err(RuntimeError::RuntimeError(
