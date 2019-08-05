@@ -10,7 +10,7 @@ type Result<T> = std::result::Result<T, RuntimeError>;
 
 struct Environment {
     values: HashMap<String, Value>,
-    enclosing: Option<Box<Environment>>
+    enclosing: Option<Box<Environment>>,
 }
 impl Environment {
     pub fn define(&mut self, name: &str, value: &Value) {
@@ -18,18 +18,25 @@ impl Environment {
     }
 
     pub fn get(&self, name: &str) -> Option<Value> {
-        if self.is_defined(name) {
+        if self.values.contains_key(name) {
             self.values.get(name).cloned()
         } else {
             match &self.enclosing {
                 Some(env) => env.get(name),
-                None => None
+                None => None,
             }
         }
     }
 
     pub fn is_defined(&self, name: &str) -> bool {
-        self.values.contains_key(name)
+        if self.values.contains_key(name) {
+            true
+        } else {
+            match &self.enclosing {
+                Some(env) => env.is_defined(name),
+                None => false,
+            }
+        }
     }
 }
 
@@ -42,7 +49,7 @@ impl Interpreter {
         Interpreter {
             env: Environment {
                 values: HashMap::new(),
-                enclosing: None
+                enclosing: None,
             },
         }
     }
@@ -168,12 +175,10 @@ impl Interpreter {
                     (_, _) => panic!("Mismatched Unary types: {:?} {:?}", op, expr),
                 }
             }
-            Expr::Variable(token, name) => {
-                self.env.get(name).ok_or(RuntimeError::RuntimeError(
-                    token.clone(),
-                    format!("Undefined variable '{:?}'", name),
-                ))
-            }
+            Expr::Variable(token, name) => self.env.get(name).ok_or(RuntimeError::RuntimeError(
+                token.clone(),
+                format!("Undefined variable '{:?}'", name),
+            )),
             Expr::Assign(token, expr) => {
                 match &token.type_ {
                     TT::Identifier(name) => {
