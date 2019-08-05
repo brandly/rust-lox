@@ -63,6 +63,12 @@ impl Interpreter {
 
     fn exec_stmt(&mut self, stmt: &Stmt) -> Result<()> {
         match stmt {
+            Stmt::Block(stmts) => {
+                for stmt in stmts {
+                    self.exec_stmt(stmt)?;
+                }
+                Ok(())
+            }
             Stmt::Expression(expr) => {
                 self.eval(expr)?;
                 Ok(())

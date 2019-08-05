@@ -52,8 +52,20 @@ impl Parser {
     fn statement(&mut self) -> Result<Stmt> {
         if let Some(_) = self.match_(vec![TT::Print]) {
             return self.print_statement();
+        } else if let Some(_) = self.match_(vec![TT::LeftBrace]) {
+            return Ok(Stmt::Block(self.block()?));
         }
         self.expression_statement()
+    }
+    fn block(&mut self) -> Result<Vec<Stmt>> {
+        let mut statements = vec![];
+
+        while !self.check(&TT::RightBrace) && !self.is_at_end() {
+            statements.push(self.declaration()?);
+        }
+
+        self.consume(TT::RightBrace, "Expected '}' after block.".to_string())?;
+        Ok(statements)
     }
 
     fn print_statement(&mut self) -> Result<Stmt> {
@@ -216,77 +228,6 @@ impl Parser {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn to_token(type_: TT) -> Token {
-        Token::new(type_, 0)
-    }
-
-    fn to_tokens(types: Vec<TT>) -> Vec<Token> {
-        types.into_iter().map(to_token).collect()
-    }
-
-    #[test]
-    fn test_expression() {
-        let mut parser = Parser::new(to_tokens(vec![
-            TT::Number(3.),
-            TT::Plus,
-            TT::Number(2.),
-            TT::EOF,
-        ]));
-
-        assert_eq!(
-            parser.expression().unwrap(),
-            Expr::Binary(
-                Box::new(Expr::Literal(Value::Number(3.))),
-                to_token(TT::Plus),
-                Box::new(Expr::Literal(Value::Number(2.)))
-            )
-        );
-    }
-
-    #[test]
-    fn test_expression_stmt() {
-        let mut parser = Parser::new(to_tokens(vec![
-            TT::Number(3.),
-            TT::Plus,
-            TT::Number(2.),
-            TT::Semicolon,
-            TT::EOF,
-        ]));
-
-        assert_eq!(
-            parser.parse().unwrap(),
-            vec![Stmt::Expression(Expr::Binary(
-                Box::new(Expr::Literal(Value::Number(3.))),
-                to_token(TT::Plus),
-                Box::new(Expr::Literal(Value::Number(2.)))
-            ))]
-        );
-    }
-
-    #[test]
-    fn test_print_stmt() {
-        let mut parser = Parser::new(to_tokens(vec![
-            TT::Print,
-            TT::Minus,
-            TT::Number(3.),
-            TT::Semicolon,
-            TT::EOF,
-        ]));
-
-        assert_eq!(
-            parser.parse().unwrap(),
-            vec![Stmt::Print(Expr::Unary(
-                to_token(TT::Minus),
-                Box::new(Expr::Literal(Value::Number(3.)))
-            ))]
-        );
-    }
-}
-
 #[derive(Debug)]
 pub enum ParseError {
     // ParseError,
@@ -313,6 +254,7 @@ impl error::Error for ParseError {
 
 #[derive(Debug, PartialEq)]
 pub enum Stmt {
+    Block(Vec<Stmt>),
     Expression(Expr),
     Print(Expr),
     VarDec(Token, Option<Expr>),
@@ -334,4 +276,95 @@ pub enum Value {
     Number(f64),
     Bool(bool),
     Nil,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn to_token(type_: TT) -> Token {
+        Token::new(type_, 0)
+    }
+
+    fn to_tokens(types: Vec<TT>) -> Vec<Token> {
+        types.into_iter().map(to_token).collect()
+    }
+
+    #[test]
+    fn expression() {
+        let mut parser = Parser::new(to_tokens(vec![
+            TT::Number(3.),
+            TT::Plus,
+            TT::Number(2.),
+            TT::EOF,
+        ]));
+
+        assert_eq!(
+            parser.expression().unwrap(),
+            Expr::Binary(
+                Box::new(Expr::Literal(Value::Number(3.))),
+                to_token(TT::Plus),
+                Box::new(Expr::Literal(Value::Number(2.)))
+            )
+        );
+    }
+
+    #[test]
+    fn expression_stmt() {
+        let mut parser = Parser::new(to_tokens(vec![
+            TT::Number(3.),
+            TT::Plus,
+            TT::Number(2.),
+            TT::Semicolon,
+            TT::EOF,
+        ]));
+
+        assert_eq!(
+            parser.parse().unwrap(),
+            vec![Stmt::Expression(Expr::Binary(
+                Box::new(Expr::Literal(Value::Number(3.))),
+                to_token(TT::Plus),
+                Box::new(Expr::Literal(Value::Number(2.)))
+            ))]
+        );
+    }
+
+    #[test]
+    fn print_stmt() {
+        let mut parser = Parser::new(to_tokens(vec![
+            TT::Print,
+            TT::Minus,
+            TT::Number(3.),
+            TT::Semicolon,
+            TT::EOF,
+        ]));
+
+        assert_eq!(
+            parser.parse().unwrap(),
+            vec![Stmt::Print(Expr::Unary(
+                to_token(TT::Minus),
+                Box::new(Expr::Literal(Value::Number(3.)))
+            ))]
+        );
+    }
+
+    #[test]
+    fn block() {
+        let mut parser = Parser::new(to_tokens(vec![
+            TT::LeftBrace,
+            TT::Minus,
+            TT::Number(3.),
+            TT::Semicolon,
+            TT::RightBrace,
+            TT::EOF,
+        ]));
+
+        assert_eq!(
+            parser.parse().unwrap(),
+            vec![Stmt::Block(vec![Stmt::Expression(Expr::Unary(
+                to_token(TT::Minus),
+                Box::new(Expr::Literal(Value::Number(3.)))
+            ))])]
+        );
+    }
 }
