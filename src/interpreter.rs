@@ -19,6 +19,10 @@ impl Environment {
     pub fn get(&self, name: String) -> Option<Value> {
         self.values.get(&name).cloned()
     }
+
+    pub fn is_defined(&self, name: String) -> bool {
+        self.values.contains_key(&name)
+    }
 }
 
 pub struct Interpreter {
@@ -160,6 +164,27 @@ impl Interpreter {
                     token.clone(),
                     format!("Undefined variable '{:?}'", name),
                 ))
+            }
+            Expr::Assign(token, expr) => {
+                match &token.type_ {
+                    TT::Identifier(name) => {
+                        if self.env.is_defined(name.to_string()) {
+                            let val = self.eval(expr)?;
+                            self.env.define(name.to_string(), val.clone());
+                            Ok(val)
+                        } else {
+                            Err(RuntimeError::RuntimeError(
+                                token.clone(),
+                                format!("Name '{}' has not been declared.", name),
+                            ))
+                        }
+                    }
+                    // TODO: types should be used better to prevent this
+                    _ => Err(RuntimeError::RuntimeError(
+                        token.clone(),
+                        "Expected Identifier in Assign".to_string(),
+                    )),
+                }
             }
         }
     }

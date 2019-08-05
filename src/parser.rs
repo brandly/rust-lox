@@ -68,7 +68,24 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Result<Expr> {
-        self.equality()
+        self.assignment()
+    }
+    fn assignment(&mut self) -> Result<Expr> {
+        let expr = self.equality()?;
+
+        if let Some(equal) = self.match_(vec![TT::Equal]) {
+            let value = self.assignment()?;
+
+            return match expr {
+                Expr::Variable(token, _) => Ok(Expr::Assign(token, Box::new(value))),
+                _ => Err(ParseError::UnexpectedToken(
+                    equal,
+                    "Expected Variable before =.".to_string(),
+                )),
+            };
+        }
+
+        Ok(expr)
     }
 
     fn equality(&mut self) -> Result<Expr> {
@@ -303,6 +320,7 @@ pub enum Stmt {
 
 #[derive(Debug, PartialEq)]
 pub enum Expr {
+    Assign(Token, Box<Expr>),
     Binary(Box<Expr>, Token, Box<Expr>),
     Grouping(Box<Expr>),
     Literal(Value),
