@@ -11,6 +11,11 @@ use crate::token::TokenType as TT;
 
 type Result<T> = std::result::Result<T, RuntimeError>;
 
+#[derive(Debug)]
+pub enum AssignError {
+    NotDeclared,
+}
+
 struct Environment {
     values: HashMap<String, Value>,
     enclosing: Option<Rc<RefCell<Environment>>>,
@@ -31,6 +36,15 @@ impl Environment {
 
     pub fn define(&mut self, name: &str, value: &Value) {
         self.values.insert(name.to_string(), value.clone());
+    }
+
+    pub fn assign(&mut self, name: &str, value: &Value) -> std::result::Result<(), AssignError> {
+        if self.is_defined(name) {
+            self.values.insert(name.to_string(), value.clone());
+            Ok(())
+        } else {
+            Err(AssignError::NotDeclared)
+        }
     }
 
     pub fn get(&self, name: &str) -> Option<Value> {
@@ -211,16 +225,17 @@ impl Interpreter {
             Expr::Assign(token, expr) => {
                 match &token.type_ {
                     TT::Identifier(name) => {
-                        if self.env.borrow_mut().is_defined(name) {
-                            let val = self.eval(expr)?;
-                            self.env.borrow_mut().define(name, &val);
-                            Ok(val)
-                        } else {
-                            Err(RuntimeError::RuntimeError(
-                                token.clone(),
-                                format!("Name '{}' has not been declared.", name),
-                            ))
-                        }
+                        let val = self.eval(expr)?;
+                        self.env
+                            .borrow_mut()
+                            .assign(name, &val)
+                            .map(|_| val)
+                            .map_err(|e| match e {
+                                AssignError::NotDeclared => RuntimeError::RuntimeError(
+                                    token.clone(),
+                                    format!("Name '{}' has not been declared.", name),
+                                ),
+                            })
                     }
                     // TODO: types should be used better to prevent this
                     _ => Err(RuntimeError::RuntimeError(
