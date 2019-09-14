@@ -1,6 +1,9 @@
+use core::cell::RefCell;
 use std::collections::HashMap;
 use std::error;
 use std::fmt;
+use std::mem;
+use std::rc::Rc;
 
 use crate::parser::{Expr, Stmt, Value};
 use crate::token::Token;
@@ -10,9 +13,22 @@ type Result<T> = std::result::Result<T, RuntimeError>;
 
 struct Environment {
     values: HashMap<String, Value>,
-    enclosing: Option<Box<Environment>>,
+    enclosing: Option<Rc<RefCell<Environment>>>,
 }
 impl Environment {
+    pub fn new() -> Self {
+        Environment {
+            values: HashMap::new(),
+            enclosing: None,
+        }
+    }
+    pub fn enclosing(env: Rc<RefCell<Environment>>) -> Environment {
+        Environment {
+            values: HashMap::new(),
+            enclosing: Some(env),
+        }
+    }
+
     pub fn define(&mut self, name: &str, value: &Value) {
         self.values.insert(name.to_string(), value.clone());
     }
@@ -22,7 +38,7 @@ impl Environment {
             self.values.get(name).cloned()
         } else {
             match &self.enclosing {
-                Some(env) => env.get(name),
+                Some(env) => env.borrow().get(name),
                 None => None,
             }
         }
@@ -33,7 +49,7 @@ impl Environment {
             true
         } else {
             match &self.enclosing {
-                Some(env) => env.is_defined(name),
+                Some(env) => env.borrow().is_defined(name),
                 None => false,
             }
         }
@@ -41,16 +57,13 @@ impl Environment {
 }
 
 pub struct Interpreter {
-    env: Environment,
+    env: Rc<RefCell<Environment>>,
 }
 
 impl Interpreter {
     pub fn new() -> Interpreter {
         Interpreter {
-            env: Environment {
-                values: HashMap::new(),
-                enclosing: None,
-            },
+            env: Rc::new(RefCell::new(Environment::new())),
         }
     }
 
@@ -64,9 +77,14 @@ impl Interpreter {
     fn exec_stmt(&mut self, stmt: &Stmt) -> Result<()> {
         match stmt {
             Stmt::Block(stmts) => {
+                let new_env = Environment::enclosing(Rc::clone(&self.env));
+                let old_env = mem::replace(&mut self.env, Rc::new(RefCell::new(new_env)));
+
                 for stmt in stmts {
                     self.exec_stmt(stmt)?;
                 }
+
+                self.env = old_env;
                 Ok(())
             }
             Stmt::Expression(expr) => {
@@ -80,11 +98,11 @@ impl Interpreter {
             Stmt::VarDec(token, maybe_expr) => match (token.type_.clone(), maybe_expr) {
                 (TT::Identifier(ref name), Some(expr)) => {
                     let val = self.eval(&expr)?;
-                    self.env.define(name, &val);
+                    self.env.borrow_mut().define(name, &val);
                     Ok(())
                 }
                 (TT::Identifier(ref name), None) => {
-                    self.env.define(name, &Value::Nil);
+                    self.env.borrow_mut().define(name, &Value::Nil);
                     Ok(())
                 }
                 _ => Err(RuntimeError::RuntimeError(
@@ -181,16 +199,21 @@ impl Interpreter {
                     (_, _) => panic!("Mismatched Unary types: {:?} {:?}", op, expr),
                 }
             }
-            Expr::Variable(token, name) => self.env.get(name).ok_or(RuntimeError::RuntimeError(
-                token.clone(),
-                format!("Undefined variable '{:?}'", name),
-            )),
+            Expr::Variable(token, name) => {
+                self.env
+                    .borrow_mut()
+                    .get(name)
+                    .ok_or(RuntimeError::RuntimeError(
+                        token.clone(),
+                        format!("Undefined variable '{:?}'", name),
+                    ))
+            }
             Expr::Assign(token, expr) => {
                 match &token.type_ {
                     TT::Identifier(name) => {
-                        if self.env.is_defined(name) {
+                        if self.env.borrow_mut().is_defined(name) {
                             let val = self.eval(expr)?;
-                            self.env.define(name, &val);
+                            self.env.borrow_mut().define(name, &val);
                             Ok(val)
                         } else {
                             Err(RuntimeError::RuntimeError(
