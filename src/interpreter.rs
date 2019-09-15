@@ -143,6 +143,25 @@ impl Interpreter {
                     }
                 }
             }
+            Stmt::While(cond, stmt) => {
+                loop {
+                    match self.eval(cond)? {
+                        Value::Bool(boolean) => {
+                            if boolean {
+                                self.exec_stmt(stmt)?
+                            } else {
+                                return Ok(())
+                            }
+                        }
+                        _ => {
+                            // TODO: really shouldn't panic
+                            // either need `isTruthy` for all `Value`s
+                            // or be able to get a `Token` for all `Expr`s.
+                            panic!("Expected boolean value in `while` condition: {:?}", cond);
+                        }
+                    }
+                }
+            }
         }
     }
 

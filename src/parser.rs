@@ -54,6 +54,8 @@ impl Parser {
             return self.if_statement();
         } else if let Some(_) = self.match_(vec![TT::Print]) {
             return self.print_statement();
+        } else if let Some(_) = self.match_(vec![TT::While]) {
+            return self.while_statement();
         } else if let Some(_) = self.match_(vec![TT::LeftBrace]) {
             return Ok(Stmt::Block(self.block()?));
         }
@@ -95,6 +97,16 @@ impl Parser {
         let value = self.expression()?;
         self.consume(TT::Semicolon, "Expected ';' after value.".to_string())?;
         Ok(Stmt::Print(value))
+    }
+    fn while_statement(&mut self) -> Result<Stmt> {
+        self.consume(TT::LeftParen, "Expected '(' after 'while'.".to_string())?;
+        let condition = self.expression()?;
+        self.consume(
+            TT::RightParen,
+            "Expected ')' after while condition.".to_string(),
+        )?;
+        let body = self.statement()?;
+        Ok(Stmt::While(condition, Box::new(body)))
     }
     fn expression_statement(&mut self) -> Result<Stmt> {
         let value = self.expression()?;
@@ -298,6 +310,7 @@ pub enum Stmt {
     Print(Expr),
     VarDec(Token, Option<Expr>),
     If(Expr, Box<Stmt>, Option<Box<Stmt>>),
+    While(Expr, Box<Stmt>),
 }
 
 #[derive(Debug, PartialEq)]
