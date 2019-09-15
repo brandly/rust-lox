@@ -125,42 +125,20 @@ impl Interpreter {
                 )),
             },
             Stmt::If(cond, then_stmt, else_stmt) => {
-                match self.eval(cond)? {
-                    Value::Bool(boolean) => {
-                        if boolean {
-                            self.exec_stmt(then_stmt)
-                        } else if let Some(stmt) = else_stmt {
-                            self.exec_stmt(stmt)
-                        } else {
-                            Ok(())
-                        }
-                    }
-                    _ => {
-                        // TODO: really shouldn't panic
-                        // either need `isTruthy` for all `Value`s
-                        // or be able to get a `Token` for all `Expr`s.
-                        panic!("Expected boolean value in `if` condition: {:?}", cond);
-                    }
+                if is_truthy(&self.eval(cond)?) {
+                    self.exec_stmt(then_stmt)
+                } else if let Some(stmt) = else_stmt {
+                    self.exec_stmt(stmt)
+                } else {
+                    Ok(())
                 }
             }
             Stmt::While(cond, stmt) => {
-                loop {
-                    match self.eval(cond)? {
-                        Value::Bool(boolean) => {
-                            if boolean {
-                                self.exec_stmt(stmt)?
-                            } else {
-                                return Ok(())
-                            }
-                        }
-                        _ => {
-                            // TODO: really shouldn't panic
-                            // either need `isTruthy` for all `Value`s
-                            // or be able to get a `Token` for all `Expr`s.
-                            panic!("Expected boolean value in `while` condition: {:?}", cond);
-                        }
-                    }
+                while is_truthy(&self.eval(cond)?) {
+                    self.exec_stmt(stmt)?;
                 }
+
+                Ok(())
             }
         }
     }
@@ -243,22 +221,28 @@ impl Interpreter {
             Expr::Logical(left_expr, op, right_expr) => {
                 let left = self.eval(left_expr)?;
 
-                match (&left, &op.type_) {
-                    (Value::Bool(true), TT::Or) => Ok(left.clone()),
-                    (Value::Bool(false), TT::And) => Ok(left.clone()),
-                    // TODO: every non-bool is treated as falsey. isTruthy!
-                    (_, _) => Ok(self.eval(right_expr)?),
+                if op.type_ == TT::Or {
+                    if is_truthy(&left) {
+                        return Ok(left);
+                    }
+                } else {
+                    if !is_truthy(&left) {
+                        return Ok(left);
+                    }
                 }
+
+                Ok(self.eval(right_expr)?)
             }
             Expr::Unary(op, expr) => {
                 let val = self.eval(expr)?;
 
                 match (&op.type_, val) {
                     (TT::Minus, Value::Number(num)) => Ok(Value::Number(-num)),
-                    // TODO: isTruthy?
-                    (TT::Bang, Value::Bool(boolean)) => Ok(Value::Bool(!boolean)),
-
-                    (_, _) => panic!("Mismatched Unary types: {:?} {:?}", op, expr),
+                    (TT::Bang, val) => Ok(Value::Bool(!is_truthy(&val))),
+                    (_, _) => Err(RuntimeError::RuntimeError(
+                        op.clone(),
+                        format!("Mismatched Unary types: {:?} and {:?}", op, expr),
+                    )),
                 }
             }
             Expr::Variable(token, name) => {
@@ -293,6 +277,15 @@ impl Interpreter {
                 }
             }
         }
+    }
+}
+
+// ruby-esque
+fn is_truthy(val: &Value) -> bool {
+    match &val {
+        Value::Nil => false,
+        Value::Bool(boolean) => *boolean,
+        _ => true,
     }
 }
 
