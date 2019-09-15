@@ -50,7 +50,9 @@ impl Parser {
         Ok(Stmt::VarDec(name, initial))
     }
     fn statement(&mut self) -> Result<Stmt> {
-        if let Some(_) = self.match_(vec![TT::Print]) {
+        if let Some(_) = self.match_(vec![TT::If]) {
+            return self.if_statement();
+        } else if let Some(_) = self.match_(vec![TT::Print]) {
             return self.print_statement();
         } else if let Some(_) = self.match_(vec![TT::LeftBrace]) {
             return Ok(Stmt::Block(self.block()?));
@@ -68,6 +70,27 @@ impl Parser {
         Ok(statements)
     }
 
+    fn if_statement(&mut self) -> Result<Stmt> {
+        self.consume(TT::LeftParen, "Expected '(' after 'if'.".to_string())?;
+        let condition = self.expression()?;
+        self.consume(
+            TT::RightParen,
+            "Expected '(' after if condition.".to_string(),
+        )?;
+
+        let then_branch = self.statement()?;
+        if let Some(_) = self.match_(vec![TT::Else]) {
+            let else_branch = self.statement()?;
+            Ok(Stmt::If(
+                condition,
+                Box::new(then_branch),
+                Some(Box::new(else_branch)),
+            ))
+        } else {
+            Ok(Stmt::If(condition, Box::new(then_branch), None))
+        }
+    }
+
     fn print_statement(&mut self) -> Result<Stmt> {
         let value = self.expression()?;
         self.consume(TT::Semicolon, "Expected ';' after value.".to_string())?;
@@ -83,7 +106,7 @@ impl Parser {
         self.assignment()
     }
     fn assignment(&mut self) -> Result<Expr> {
-        let expr = self.equality()?;
+        let expr = self.or()?;
 
         if let Some(equal) = self.match_(vec![TT::Equal]) {
             let value = self.assignment()?;
@@ -97,6 +120,22 @@ impl Parser {
             };
         }
 
+        Ok(expr)
+    }
+    fn or(&mut self) -> Result<Expr> {
+        let mut expr = self.and()?;
+        while let Some(operator) = self.match_(vec![TT::Or]) {
+            let right = self.and()?;
+            expr = Expr::Logical(Box::new(expr), operator, Box::new(right));
+        }
+        Ok(expr)
+    }
+    fn and(&mut self) -> Result<Expr> {
+        let mut expr = self.equality()?;
+        while let Some(operator) = self.match_(vec![TT::And]) {
+            let right = self.equality()?;
+            expr = Expr::Logical(Box::new(expr), operator, Box::new(right));
+        }
         Ok(expr)
     }
 
@@ -258,6 +297,7 @@ pub enum Stmt {
     Expression(Expr),
     Print(Expr),
     VarDec(Token, Option<Expr>),
+    If(Expr, Box<Stmt>, Option<Box<Stmt>>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -266,6 +306,7 @@ pub enum Expr {
     Binary(Box<Expr>, Token, Box<Expr>),
     Grouping(Box<Expr>),
     Literal(Value),
+    Logical(Box<Expr>, Token, Box<Expr>),
     Unary(Token, Box<Expr>),
     Variable(Token, String),
 }

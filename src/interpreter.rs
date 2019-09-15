@@ -124,6 +124,25 @@ impl Interpreter {
                     "Expected Identifier in VarDec".to_string(),
                 )),
             },
+            Stmt::If(cond, then_stmt, else_stmt) => {
+                match self.eval(cond)? {
+                    Value::Bool(boolean) => {
+                        if boolean {
+                            self.exec_stmt(then_stmt)
+                        } else if let Some(stmt) = else_stmt {
+                            self.exec_stmt(stmt)
+                        } else {
+                            Ok(())
+                        }
+                    }
+                    _ => {
+                        // TODO: really shouldn't panic
+                        // either need `isTruthy` for all `Value`s
+                        // or be able to get a `Token` for all `Expr`s.
+                        panic!("Expected boolean value in `if` condition: {:?}", cond);
+                    }
+                }
+            }
         }
     }
 
@@ -202,6 +221,16 @@ impl Interpreter {
             }
             Expr::Grouping(expr) => self.eval(expr),
             Expr::Literal(ref value) => Ok(value.clone()),
+            Expr::Logical(left_expr, op, right_expr) => {
+                let left = self.eval(left_expr)?;
+
+                match (&left, &op.type_) {
+                    (Value::Bool(true), TT::Or) => Ok(left.clone()),
+                    (Value::Bool(false), TT::And) => Ok(left.clone()),
+                    // TODO: every non-bool is treated as falsey. isTruthy!
+                    (_, _) => Ok(self.eval(right_expr)?),
+                }
+            }
             Expr::Unary(op, expr) => {
                 let val = self.eval(expr)?;
 
