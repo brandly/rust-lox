@@ -36,6 +36,7 @@ impl error::Error for ScanError {
 pub struct Scanner<'a> {
     source: iter::Peekable<Chars<'a>>,
     line: i32,
+    column: i32,
     keywords: HashMap<&'static str, TT>,
 }
 impl<'a> Scanner<'a> {
@@ -65,6 +66,7 @@ impl<'a> Scanner<'a> {
         Scanner {
             source: source.chars().peekable(),
             line: 0,
+            column: 0,
             keywords,
         }
     }
@@ -73,19 +75,20 @@ impl<'a> Scanner<'a> {
         let mut tokens: Vec<Token> = Vec::new();
 
         loop {
-            let c = self.source.next();
+            let c = self.next();
             match c {
                 Some(c) => {
                     if c.is_whitespace() {
                         if c == '\n' {
                             self.line += 1;
+                            self.column = 0;
                         }
                         continue;
                     }
                     tokens.push(self.scan_token(c)?);
                 }
                 None => {
-                    tokens.push(Token::new(TT::EOF, self.line));
+                    tokens.push(Token::new(TT::EOF, self.line, self.column));
                     break;
                 }
             }
@@ -96,7 +99,8 @@ impl<'a> Scanner<'a> {
 
     fn scan_token(&mut self, c: char) -> Result<Token> {
         let line = self.line;
-        let basic = |type_| Ok(Token::new(type_, line));
+        let column = self.column;
+        let basic = |type_| Ok(Token::new(type_, line, column));
         match c {
             '(' => basic(TT::LeftParen),
             ')' => basic(TT::RightParen),
@@ -132,7 +136,7 @@ impl<'a> Scanner<'a> {
                 if self.match_('/') {
                     let mut comment = String::new();
                     while self.source.peek() != Some(&'\n') && self.source.peek() != None {
-                        comment.push(self.source.next().unwrap());
+                        comment.push(self.next().unwrap());
                     }
                     basic(TT::Comment(comment))
                 } else {
@@ -154,7 +158,7 @@ impl<'a> Scanner<'a> {
 
     fn match_(&mut self, c: char) -> bool {
         if self.source.peek() == Some(&c) {
-            self.source.next();
+            self.next();
             true
         } else {
             false
@@ -165,7 +169,7 @@ impl<'a> Scanner<'a> {
         let mut string = String::new();
 
         loop {
-            match self.source.next() {
+            match self.next() {
                 None => return Err(ScanError::UnterminatedString(self.line)),
                 Some('\n') => {
                     self.line += 1;
@@ -184,14 +188,14 @@ impl<'a> Scanner<'a> {
         out.push(start);
 
         while self.source.peek().map(|c| c.is_ascii_digit()) == Some(true) {
-            out.push(self.source.next().unwrap());
+            out.push(self.next().unwrap());
         }
 
         if self.source.peek() == Some(&'.') {
             // TODO: no `peekNext` so we've gotta consume the period...
-            out.push(self.source.next().unwrap());
+            out.push(self.next().unwrap());
             while self.source.peek().map(|c| c.is_ascii_digit()) == Some(true) {
-                out.push(self.source.next().unwrap());
+                out.push(self.next().unwrap());
             }
         }
 
@@ -205,7 +209,7 @@ impl<'a> Scanner<'a> {
             match self.source.peek() {
                 Some(c) => {
                     if is_alphanumeric(*c) {
-                        id.push(self.source.next().unwrap());
+                        id.push(self.next().unwrap());
                     } else {
                         break;
                     }
@@ -216,9 +220,14 @@ impl<'a> Scanner<'a> {
 
         // TODO: `&*` seems v hacky
         match self.keywords.get(&*id) {
-            Some(type_) => Ok(Token::new(type_.clone(), self.line)),
-            None => Ok(Token::new(TT::Identifier(id), self.line)),
+            Some(type_) => Ok(Token::new(type_.clone(), self.line, self.column)),
+            None => Ok(Token::new(TT::Identifier(id), self.line, self.column)),
         }
+    }
+
+    fn next(&mut self) -> Option<char> {
+        self.column += 1;
+        self.source.next()
     }
 }
 
@@ -234,19 +243,35 @@ fn is_alphanumeric(c: char) -> bool {
 mod tests {
     use super::*;
 
-    fn to_token(type_: TT) -> Token {
-        Token::new(type_, 0)
+    fn to_token((column, type_): (usize, TT)) -> Token {
+        Token::new(type_, 0, column as i32)
     }
 
     fn to_tokens(types: Vec<TT>) -> Vec<Token> {
-        types.into_iter().map(to_token).collect()
+        types.into_iter().enumerate().map(to_token).collect()
+    }
+
+    fn assert_same_tokens(a: Vec<Token>, b: Vec<Token>) {
+        assert_eq!(clean_tokens(a), clean_tokens(b));
+    }
+
+    fn clean_tokens(tokens: Vec<Token>) -> Vec<Token> {
+        tokens.into_iter().map(clean_token).collect()
+    }
+    fn clean_token(t: Token) -> Token {
+        let Token {
+            type_,
+            line: _,
+            column: _,
+        } = t;
+        Token::new(type_, 0, 0)
     }
 
     #[test]
     fn test_string() {
         let mut scanner = Scanner::new("(\"hello\");");
 
-        assert_eq!(
+        assert_same_tokens(
             scanner.scan_tokens().unwrap(),
             to_tokens(vec![
                 TT::LeftParen,
@@ -254,7 +279,7 @@ mod tests {
                 TT::RightParen,
                 TT::Semicolon,
                 TT::EOF,
-            ])
+            ]),
         );
     }
 
@@ -262,9 +287,9 @@ mod tests {
     fn test_basic_number() {
         let mut scanner = Scanner::new("420");
 
-        assert_eq!(
+        assert_same_tokens(
             scanner.scan_tokens().unwrap(),
-            to_tokens(vec![TT::Number(420.), TT::EOF,])
+            to_tokens(vec![TT::Number(420.), TT::EOF]),
         );
     }
 
@@ -272,9 +297,9 @@ mod tests {
     fn test_number_with_decimal() {
         let mut scanner = Scanner::new("4.20");
 
-        assert_eq!(
+        assert_same_tokens(
             scanner.scan_tokens().unwrap(),
-            to_tokens(vec![TT::Number(4.20), TT::EOF,])
+            to_tokens(vec![TT::Number(4.20), TT::EOF]),
         );
     }
 
@@ -282,14 +307,14 @@ mod tests {
     fn test_id() {
         let mut scanner = Scanner::new("abc = 123");
 
-        assert_eq!(
+        assert_same_tokens(
             scanner.scan_tokens().unwrap(),
             to_tokens(vec![
                 TT::Identifier("abc".to_string()),
                 TT::Equal,
                 TT::Number(123.),
                 TT::EOF,
-            ])
+            ]),
         );
     }
 
@@ -297,7 +322,7 @@ mod tests {
     fn test_keyword() {
         let mut scanner = Scanner::new("class Dog {}");
 
-        assert_eq!(
+        assert_same_tokens(
             scanner.scan_tokens().unwrap(),
             to_tokens(vec![
                 TT::Class,
@@ -305,7 +330,7 @@ mod tests {
                 TT::LeftBrace,
                 TT::RightBrace,
                 TT::EOF,
-            ])
+            ]),
         );
     }
 }

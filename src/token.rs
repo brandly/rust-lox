@@ -4,11 +4,16 @@ use std::fmt;
 pub struct Token {
     pub type_: TokenType,
     // literal ?
+    pub column: i32,
     pub line: i32,
 }
 impl Token {
-    pub fn new(type_: TokenType, line: i32) -> Token {
-        Token { type_, line }
+    pub fn new(type_: TokenType, line: i32, column: i32) -> Token {
+        Token {
+            type_,
+            line,
+            column,
+        }
     }
 }
 impl fmt::Display for Token {

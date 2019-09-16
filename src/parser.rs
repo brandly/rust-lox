@@ -50,7 +50,9 @@ impl Parser {
         Ok(Stmt::VarDec(name, initial))
     }
     fn statement(&mut self) -> Result<Stmt> {
-        if let Some(_) = self.match_(vec![TT::If]) {
+        if let Some(_) = self.match_(vec![TT::For]) {
+            return self.for_statement();
+        } else if let Some(_) = self.match_(vec![TT::If]) {
             return self.if_statement();
         } else if let Some(_) = self.match_(vec![TT::Print]) {
             return self.print_statement();
@@ -70,6 +72,52 @@ impl Parser {
 
         self.consume(TT::RightBrace, "Expected '}' after block.".to_string())?;
         Ok(statements)
+    }
+
+    fn for_statement(&mut self) -> Result<Stmt> {
+        self.consume(TT::LeftParen, "Expected '(' after 'for'.".to_string())?;
+
+        let mut initializer;
+        if let Some(_) = self.match_(vec![TT::Semicolon]) {
+            initializer = None;
+        } else if let Some(_) = self.match_(vec![TT::Var]) {
+            initializer = Some(self.var_declaration()?);
+        } else {
+            initializer = Some(self.expression_statement()?);
+        }
+
+        let mut condition = None;
+        if !self.check(&TT::Semicolon) {
+            condition = Some(self.expression()?);
+        }
+        self.consume(
+            TT::Semicolon,
+            "Expected ';' after loop condition.".to_string(),
+        )?;
+
+        let mut increment = None;
+        if !self.check(&TT::RightParen) {
+            increment = Some(self.expression()?);
+        }
+        self.consume(
+            TT::RightParen,
+            "Expected ')' after `for` clauses.".to_string(),
+        )?;
+
+        let mut body = self.statement()?;
+        if let Some(increment_val) = increment {
+            body = Stmt::Block(vec![body, Stmt::Expression(increment_val)])
+        }
+        body = Stmt::While(
+            condition.unwrap_or(Expr::Literal(Value::Bool(true))),
+            Box::new(body),
+        );
+
+        if let Some(initializer_val) = initializer {
+            body = Stmt::Block(vec![initializer_val, body])
+        }
+
+        Ok(body)
     }
 
     fn if_statement(&mut self) -> Result<Stmt> {
@@ -213,7 +261,7 @@ impl Parser {
             return Ok(Expr::Unary(operator, Box::new(right)));
         }
 
-        return self.primary();
+        self.primary()
     }
 
     fn primary(&mut self) -> Result<Expr> {
@@ -247,9 +295,9 @@ impl Parser {
     fn consume(&mut self, type_: TT, msg: String) -> Result<&Token> {
         let token = self.advance().expect(&msg);
         if token.type_ == type_ {
-            return Ok(token);
+            Ok(token)
         } else {
-            return Err(ParseError::UnexpectedToken(token.clone(), msg));
+            Err(ParseError::UnexpectedToken(token.clone(), msg))
         }
     }
     fn consume_identifier(&mut self, msg: String) -> Result<&Token> {
@@ -336,12 +384,12 @@ pub enum Value {
 mod tests {
     use super::*;
 
-    fn to_token(type_: TT) -> Token {
-        Token::new(type_, 0)
+    fn to_token((column, type_): (usize, TT)) -> Token {
+        Token::new(type_, 0, column as i32)
     }
 
     fn to_tokens(types: Vec<TT>) -> Vec<Token> {
-        types.into_iter().map(to_token).collect()
+        types.into_iter().enumerate().map(to_token).collect()
     }
 
     #[test]
@@ -357,7 +405,7 @@ mod tests {
             parser.expression().unwrap(),
             Expr::Binary(
                 Box::new(Expr::Literal(Value::Number(3.))),
-                to_token(TT::Plus),
+                to_token((1, TT::Plus)),
                 Box::new(Expr::Literal(Value::Number(2.)))
             )
         );
@@ -377,7 +425,7 @@ mod tests {
             parser.parse().unwrap(),
             vec![Stmt::Expression(Expr::Binary(
                 Box::new(Expr::Literal(Value::Number(3.))),
-                to_token(TT::Plus),
+                to_token((1, TT::Plus)),
                 Box::new(Expr::Literal(Value::Number(2.)))
             ))]
         );
@@ -396,7 +444,7 @@ mod tests {
         assert_eq!(
             parser.parse().unwrap(),
             vec![Stmt::Print(Expr::Unary(
-                to_token(TT::Minus),
+                to_token((1, TT::Minus)),
                 Box::new(Expr::Literal(Value::Number(3.)))
             ))]
         );
@@ -416,9 +464,93 @@ mod tests {
         assert_eq!(
             parser.parse().unwrap(),
             vec![Stmt::Block(vec![Stmt::Expression(Expr::Unary(
-                to_token(TT::Minus),
+                to_token((1, TT::Minus)),
                 Box::new(Expr::Literal(Value::Number(3.)))
             ))])]
+        );
+    }
+
+    #[test]
+    fn for_loop() {
+        let mut parser = Parser::new(to_tokens(vec![
+            TT::For,
+            TT::LeftParen,
+            TT::Var,
+            TT::Identifier("i".to_string()),
+            TT::Equal,
+            TT::Number(0.0),
+            TT::Semicolon,
+            TT::Identifier("i".to_string()),
+            TT::Less,
+            TT::Number(5.0),
+            TT::Semicolon,
+            TT::Identifier("i".to_string()),
+            TT::Equal,
+            TT::Identifier("i".to_string()),
+            TT::Plus,
+            TT::Number(1.0),
+            TT::RightParen,
+            TT::LeftBrace,
+            TT::RightBrace,
+            TT::EOF,
+        ]));
+
+        assert_eq!(
+            parser.parse().unwrap(),
+            vec![Stmt::Block(vec![
+                Stmt::VarDec(
+                    Token {
+                        type_: TT::Identifier("i".to_string()),
+                        column: 3,
+                        line: 0
+                    },
+                    Some(Expr::Literal(Value::Number(0.0)))
+                ),
+                Stmt::While(
+                    Expr::Binary(
+                        Box::new(Expr::Variable(
+                            Token {
+                                type_: TT::Identifier("i".to_string()),
+                                column: 7,
+                                line: 0
+                            },
+                            "i".to_string()
+                        )),
+                        Token {
+                            type_: TT::Less,
+                            column: 8,
+                            line: 0
+                        },
+                        Box::new(Expr::Literal(Value::Number(5.0)))
+                    ),
+                    Box::new(Stmt::Block(vec![
+                        Stmt::Block(vec![]),
+                        Stmt::Expression(Expr::Assign(
+                            Token {
+                                type_: TT::Identifier("i".to_string()),
+                                column: 11,
+                                line: 0
+                            },
+                            Box::new(Expr::Binary(
+                                Box::new(Expr::Variable(
+                                    Token {
+                                        type_: TT::Identifier("i".to_string()),
+                                        column: 13,
+                                        line: 0
+                                    },
+                                    "i".to_string()
+                                )),
+                                Token {
+                                    type_: TT::Plus,
+                                    column: 14,
+                                    line: 0
+                                },
+                                Box::new(Expr::Literal(Value::Number(1.0)))
+                            ))
+                        ))
+                    ]))
+                )
+            ])]
         );
     }
 }
