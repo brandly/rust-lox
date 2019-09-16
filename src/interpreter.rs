@@ -39,9 +39,11 @@ impl Environment {
     }
 
     pub fn assign(&mut self, name: &str, value: &Value) -> std::result::Result<(), AssignError> {
-        if self.is_defined(name) {
+        if self.values.contains_key(name) {
             self.values.insert(name.to_string(), value.clone());
             Ok(())
+        } else if let Some(env) = &self.enclosing {
+            env.borrow_mut().assign(name, value)
         } else {
             Err(AssignError::NotDeclared)
         }
@@ -54,17 +56,6 @@ impl Environment {
             match &self.enclosing {
                 Some(env) => env.borrow().get(name),
                 None => None,
-            }
-        }
-    }
-
-    pub fn is_defined(&self, name: &str) -> bool {
-        if self.values.contains_key(name) {
-            true
-        } else {
-            match &self.enclosing {
-                Some(env) => env.borrow().is_defined(name),
-                None => false,
             }
         }
     }
