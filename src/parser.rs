@@ -261,7 +261,44 @@ impl Parser {
             return Ok(Expr::Unary(operator, Box::new(right)));
         }
 
-        self.primary()
+        self.call()
+    }
+
+    fn call(&mut self) -> Result<Expr> {
+        let mut expr = self.primary()?;
+
+        loop {
+            if let Some(_) = self.match_(vec![TT::LeftParen]) {
+                expr = self.finish_call(expr)?;
+            } else {
+                break;
+            }
+        }
+
+        Ok(expr)
+    }
+
+    fn finish_call(&mut self, callee: Expr) -> Result<Expr> {
+        let mut arguments = Vec::new();
+
+        if !self.check(&TT::RightParen) {
+            // do while
+            loop {
+                if arguments.len() >= 255 {
+                    return Err(ParseError::UnexpectedToken(
+                        self.peek().clone(),
+                        "Cannot have more than 255 arguments.".to_string(),
+                    ));
+                }
+                arguments.push(self.expression()?);
+                if None == self.match_(vec![TT::Comma]) {
+                    break;
+                }
+            }
+        }
+
+        let paren = self.consume(TT::RightParen, "Expected ')' after arguments.".to_string())?;
+        Ok(Expr::Call(Box::new(callee), paren.clone(), arguments))
     }
 
     fn primary(&mut self) -> Result<Expr> {
@@ -365,6 +402,7 @@ pub enum Stmt {
 pub enum Expr {
     Assign(Token, Box<Expr>),
     Binary(Box<Expr>, Token, Box<Expr>),
+    Call(Box<Expr>, Token, Vec<Expr>),
     Grouping(Box<Expr>),
     Literal(Value),
     Logical(Box<Expr>, Token, Box<Expr>),
@@ -551,6 +589,74 @@ mod tests {
                     ]))
                 )
             ])]
+        );
+    }
+
+    #[test]
+    fn function_call() {
+        let mut parser = Parser::new(to_tokens(vec![
+            TT::Identifier("get_it".to_string()),
+            TT::LeftParen,
+            TT::RightParen,
+            TT::Semicolon,
+            TT::EOF,
+        ]));
+
+        assert_eq!(
+            parser.parse().unwrap(),
+            vec![Stmt::Expression(Expr::Call(
+                Box::new(Expr::Variable(
+                    Token {
+                        type_: TT::Identifier("get_it".to_string()),
+                        column: 0,
+                        line: 0
+                    },
+                    "get_it".to_string()
+                )),
+                Token {
+                    type_: TT::RightParen,
+                    column: 2,
+                    line: 0
+                },
+                vec![]
+            ))]
+        );
+    }
+
+    #[test]
+    fn function_call_with_args() {
+        let mut parser = Parser::new(to_tokens(vec![
+            TT::Identifier("get_it".to_string()),
+            TT::LeftParen,
+            TT::Number(69.0),
+            TT::Comma,
+            TT::Number(420.0),
+            TT::RightParen,
+            TT::Semicolon,
+            TT::EOF,
+        ]));
+
+        assert_eq!(
+            parser.parse().unwrap(),
+            vec![Stmt::Expression(Expr::Call(
+                Box::new(Expr::Variable(
+                    Token {
+                        type_: TT::Identifier("get_it".to_string()),
+                        column: 0,
+                        line: 0
+                    },
+                    "get_it".to_string()
+                )),
+                Token {
+                    type_: TT::RightParen,
+                    column: 5,
+                    line: 0
+                },
+                vec![
+                    Expr::Literal(Value::Number(69.0)),
+                    Expr::Literal(Value::Number(420.0))
+                ]
+            ))]
         );
     }
 }
