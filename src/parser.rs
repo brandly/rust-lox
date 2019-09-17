@@ -1,6 +1,8 @@
+use crate::lox_callable::LoxCallable;
 use crate::token::{Token, TokenType as TT};
 use std::error;
 use std::fmt;
+use std::rc::Rc;
 
 type Result<T> = std::result::Result<T, ParseError>;
 
@@ -412,6 +414,7 @@ pub enum Expr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
+    Callable(Rc<Box<dyn LoxCallable>>),
     String(String),
     Number(f64),
     Bool(bool),

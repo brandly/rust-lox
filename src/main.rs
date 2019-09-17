@@ -3,6 +3,7 @@ use std::process;
 
 mod interpreter;
 mod lox;
+mod lox_callable;
 mod parser;
 mod scanner;
 mod token;

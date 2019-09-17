@@ -8,8 +8,9 @@ use std::rc::Rc;
 use crate::parser::{Expr, Stmt, Value};
 use crate::token::Token;
 use crate::token::TokenType as TT;
+use crate::lox_callable::Clock;
 
-type Result<T> = std::result::Result<T, RuntimeError>;
+pub type Result<T> = std::result::Result<T, RuntimeError>;
 
 #[derive(Debug)]
 pub enum AssignError {
@@ -67,8 +68,13 @@ pub struct Interpreter {
 
 impl Interpreter {
     pub fn new() -> Interpreter {
+        let mut globals = Environment::new();
+        globals.define(
+            "clock",
+            &Value::Callable(Rc::new(Box::new(Clock))),
+        );
         Interpreter {
-            env: Rc::new(RefCell::new(Environment::new())),
+            env: Rc::new(RefCell::new(globals)),
         }
     }
 
@@ -204,6 +210,35 @@ impl Interpreter {
                     (_, _, _) => Err(RuntimeError::RuntimeError(
                         op.clone(),
                         format!("Mismatched Binary types: {:?} and {:?}", left, right),
+                    )),
+                }
+            }
+            Expr::Call(callee_expr, paren, arguments_expr) => {
+                let callee = self.eval(callee_expr)?;
+
+                let mut arguments = Vec::new();
+                for arg in arguments_expr {
+                    arguments.push(self.eval(arg)?);
+                }
+
+                match callee {
+                    Value::Callable(callable) => {
+                        if callable.arity() == arguments.len() {
+                            callable.call(self, &arguments)
+                        } else {
+                            Err(RuntimeError::RuntimeError(
+                                paren.clone(),
+                                format!(
+                                    "Expected {:?} argument(s) but got {:?}",
+                                    callable.arity(),
+                                    arguments.len()
+                                ),
+                            ))
+                        }
+                    }
+                    val => Err(RuntimeError::RuntimeError(
+                        paren.clone(),
+                        format!("Can only call functions and classes. Found {:?}", val),
                     )),
                 }
             }
