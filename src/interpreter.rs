@@ -96,7 +96,12 @@ impl Interpreter {
                 Ok(())
             }
             Stmt::Function(name, parameters, body) => {
-                let func = LoxFunction::new(name.clone(), parameters.clone(), body.to_vec(), Rc::clone(&self.env));
+                let func = LoxFunction::new(
+                    name.clone(),
+                    parameters.clone(),
+                    body.to_vec(),
+                    Rc::clone(&self.env),
+                );
                 match &name.type_ {
                     TT::Identifier(name_str) => {
                         self.env
@@ -349,11 +354,16 @@ struct LoxFunction {
     name: Token,
     parameters: Vec<Token>,
     body: Vec<Stmt>,
-    env: Rc<RefCell<Environment>>
+    env: Rc<RefCell<Environment>>,
 }
 
 impl LoxFunction {
-    pub fn new(name: Token, parameters: Vec<Token>, body: Vec<Stmt>, env: Rc<RefCell<Environment>>) -> Self {
+    pub fn new(
+        name: Token,
+        parameters: Vec<Token>,
+        body: Vec<Stmt>,
+        env: Rc<RefCell<Environment>>,
+    ) -> Self {
         LoxFunction {
             name,
             parameters,
