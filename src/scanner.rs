@@ -47,7 +47,7 @@ impl<'a> Scanner<'a> {
             ("else", TT::Else),
             ("false", TT::False),
             ("for", TT::For),
-            ("fun", TT::Fun),
+            ("fun", TT::Function),
             ("if", TT::If),
             ("nil", TT::Nil),
             ("or", TT::Or),
@@ -65,8 +65,8 @@ impl<'a> Scanner<'a> {
 
         Scanner {
             source: source.chars().peekable(),
-            line: 0,
-            column: 0,
+            line: 1,
+            column: 1,
             keywords,
         }
     }

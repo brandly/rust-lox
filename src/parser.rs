@@ -28,16 +28,16 @@ impl Parser {
 
     fn declaration(&mut self) -> Result<Stmt> {
         // TODO: synchronize
-        if let Some(_) = self.match_(vec![TT::Var]) {
+        if let Some(_) = self.match_(vec![TT::Function]) {
+            self.function("function")
+        } else if let Some(_) = self.match_(vec![TT::Var]) {
             self.var_declaration()
         } else {
             self.statement()
         }
     }
     fn var_declaration(&mut self) -> Result<Stmt> {
-        let name = self
-            .consume_identifier("Expected variable name.".to_string())?
-            .clone();
+        let name = self.consume_identifier("Expected variable name.".to_string())?;
 
         let mut initial = None;
         if let Some(_) = self.match_(vec![TT::Equal]) {
@@ -58,6 +58,8 @@ impl Parser {
             return self.if_statement();
         } else if let Some(_) = self.match_(vec![TT::Print]) {
             return self.print_statement();
+        } else if let Some(return_) = self.match_(vec![TT::Return]) {
+            return self.return_statement(return_);
         } else if let Some(_) = self.match_(vec![TT::While]) {
             return self.while_statement();
         } else if let Some(_) = self.match_(vec![TT::LeftBrace]) {
@@ -148,6 +150,17 @@ impl Parser {
         self.consume(TT::Semicolon, "Expected ';' after value.".to_string())?;
         Ok(Stmt::Print(value))
     }
+    fn return_statement(&mut self, return_: Token) -> Result<Stmt> {
+        let mut value = None;
+        if !self.check(&TT::Semicolon) {
+            value = Some(self.expression()?);
+        }
+        self.consume(
+            TT::Semicolon,
+            "Expected ';' after return value.".to_string(),
+        )?;
+        Ok(Stmt::Return(return_, value))
+    }
     fn while_statement(&mut self) -> Result<Stmt> {
         self.consume(TT::LeftParen, "Expected '(' after 'while'.".to_string())?;
         let condition = self.expression()?;
@@ -162,6 +175,33 @@ impl Parser {
         let value = self.expression()?;
         self.consume(TT::Semicolon, "Expected ';' after expression.".to_string())?;
         Ok(Stmt::Expression(value))
+    }
+    fn function(&mut self, kind: &str) -> Result<Stmt> {
+        let name = self.consume_identifier(format!("Expected {} name.", kind))?;
+        self.consume(TT::LeftParen, format!("Expected '(' after {} name.", kind))?;
+        let mut parameters = vec![];
+
+        if !self.check(&TT::RightParen) {
+            loop {
+                if parameters.len() >= 255 {
+                    return Err(ParseError::UnexpectedToken(
+                        self.peek().clone(),
+                        "Cannot have more than 255 parameters.".to_string(),
+                    ));
+                }
+                parameters.push(self.consume_identifier("Expected parameter name.".to_string())?);
+                if None == self.match_(vec![TT::Comma]) {
+                    break;
+                }
+            }
+        }
+        self.consume(TT::RightParen, "Expected ')' after parameters.".to_string())?;
+        self.consume(
+            TT::LeftBrace,
+            format!("Expected '{{' before {} body.", kind),
+        )?;
+        let body = self.block()?;
+        Ok(Stmt::Function(name, parameters, body))
     }
 
     fn expression(&mut self) -> Result<Expr> {
@@ -339,9 +379,9 @@ impl Parser {
             Err(ParseError::UnexpectedToken(token.clone(), msg))
         }
     }
-    fn consume_identifier(&mut self, msg: String) -> Result<&Token> {
+    fn consume_identifier(&mut self, msg: String) -> Result<Token> {
         if let TT::Identifier(_) = self.peek().type_ {
-            Ok(self.advance().unwrap())
+            Ok(self.advance().unwrap().clone())
         } else {
             Err(ParseError::UnexpectedToken(self.peek().clone(), msg))
         }
@@ -390,17 +430,19 @@ impl error::Error for ParseError {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Stmt {
     Block(Vec<Stmt>),
     Expression(Expr),
+    Function(Token, Vec<Token>, Vec<Stmt>),
     Print(Expr),
+    Return(Token, Option<Expr>),
     VarDec(Token, Option<Expr>),
     If(Expr, Box<Stmt>, Option<Box<Stmt>>),
     While(Expr, Box<Stmt>),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Expr {
     Assign(Token, Box<Expr>),
     Binary(Box<Expr>, Token, Box<Expr>),
@@ -660,6 +702,54 @@ mod tests {
                     Expr::Literal(Value::Number(420.0))
                 ]
             ))]
+        );
+    }
+
+    #[test]
+    fn function_declaration_and_call() {
+        let mut parser = Parser::new(to_tokens(vec![
+            TT::Function,
+            TT::Identifier("sayHi".to_string()),
+            TT::LeftParen,
+            TT::Identifier("name".to_string()),
+            TT::RightParen,
+            TT::LeftBrace,
+            TT::Return,
+            TT::Identifier("name".to_string()),
+            TT::Semicolon,
+            TT::RightBrace,
+            TT::EOF,
+        ]));
+
+        assert_eq!(
+            parser.parse().unwrap(),
+            vec![Stmt::Function(
+                Token {
+                    type_: TT::Identifier("sayHi".to_string()),
+                    column: 1,
+                    line: 0
+                },
+                vec![Token {
+                    type_: TT::Identifier("name".to_string()),
+                    column: 3,
+                    line: 0
+                }],
+                vec![Stmt::Return(
+                    Token {
+                        type_: TT::Return,
+                        column: 6,
+                        line: 0
+                    },
+                    Some(Expr::Variable(
+                        Token {
+                            type_: TT::Identifier("name".to_string()),
+                            column: 7,
+                            line: 0
+                        },
+                        "name".to_string()
+                    ))
+                )]
+            )]
         );
     }
 }

@@ -5,10 +5,11 @@ use std::fmt;
 use std::mem;
 use std::rc::Rc;
 
+use crate::lox_callable::Clock;
+use crate::lox_callable::LoxCallable;
 use crate::parser::{Expr, Stmt, Value};
 use crate::token::Token;
 use crate::token::TokenType as TT;
-use crate::lox_callable::Clock;
 
 pub type Result<T> = std::result::Result<T, RuntimeError>;
 
@@ -17,6 +18,7 @@ pub enum AssignError {
     NotDeclared,
 }
 
+#[derive(Debug)]
 struct Environment {
     values: HashMap<String, Value>,
     enclosing: Option<Rc<RefCell<Environment>>>,
@@ -69,10 +71,7 @@ pub struct Interpreter {
 impl Interpreter {
     pub fn new() -> Interpreter {
         let mut globals = Environment::new();
-        globals.define(
-            "clock",
-            &Value::Callable(Rc::new(Box::new(Clock))),
-        );
+        globals.define("clock", &Value::Callable(Rc::new(Box::new(Clock))));
         Interpreter {
             env: Rc::new(RefCell::new(globals)),
         }
@@ -87,24 +86,37 @@ impl Interpreter {
 
     fn exec_stmt(&mut self, stmt: &Stmt) -> Result<()> {
         match stmt {
-            Stmt::Block(stmts) => {
-                let new_env = Environment::enclosing(Rc::clone(&self.env));
-                let old_env = mem::replace(&mut self.env, Rc::new(RefCell::new(new_env)));
-
-                for stmt in stmts {
-                    self.exec_stmt(stmt)?;
-                }
-
-                self.env = old_env;
+            Stmt::Block(ref stmts) => {
+                let new_env = Rc::new(RefCell::new(Environment::enclosing(Rc::clone(&self.env))));
+                self.exec_block(stmts, new_env)?;
                 Ok(())
             }
             Stmt::Expression(expr) => {
                 self.eval(expr)?;
                 Ok(())
             }
+            Stmt::Function(name, parameters, body) => {
+                let func = LoxFunction::new(name.clone(), parameters.clone(), body.to_vec(), Rc::clone(&self.env));
+                match &name.type_ {
+                    TT::Identifier(name_str) => {
+                        self.env
+                            .borrow_mut()
+                            .define(&name_str, &Value::Callable(Rc::new(Box::new(func))));
+                        Ok(())
+                    }
+                    _ => panic!("Expected identifier but got {:?}", name),
+                }
+            }
             Stmt::Print(expr) => {
                 println!("{:?}", self.eval(expr)?);
                 Ok(())
+            }
+            Stmt::Return(_return, stmt) => {
+                let mut output = Value::Nil;
+                if let Some(value) = stmt {
+                    output = self.eval(value)?;
+                }
+                Err(RuntimeError::Return(output))
             }
             Stmt::VarDec(token, maybe_expr) => match (token.type_.clone(), maybe_expr) {
                 (TT::Identifier(ref name), Some(expr)) => {
@@ -138,6 +150,23 @@ impl Interpreter {
                 Ok(())
             }
         }
+    }
+
+    fn exec_block(&mut self, stmts: &Vec<Stmt>, new_env: Rc<RefCell<Environment>>) -> Result<()> {
+        let old_env = mem::replace(&mut self.env, new_env);
+
+        for stmt in stmts {
+            match self.exec_stmt(&stmt) {
+                Ok(_) => continue,
+                Err(err) => {
+                    self.env = old_env;
+                    return Err(err);
+                }
+            }
+        }
+
+        self.env = old_env;
+        Ok(())
     }
 
     fn eval(&mut self, expr: &Expr) -> Result<Value> {
@@ -316,8 +345,53 @@ fn is_truthy(val: &Value) -> bool {
 }
 
 #[derive(Debug)]
+struct LoxFunction {
+    name: Token,
+    parameters: Vec<Token>,
+    body: Vec<Stmt>,
+    env: Rc<RefCell<Environment>>
+}
+
+impl LoxFunction {
+    pub fn new(name: Token, parameters: Vec<Token>, body: Vec<Stmt>, env: Rc<RefCell<Environment>>) -> Self {
+        LoxFunction {
+            name,
+            parameters,
+            body,
+            env,
+        }
+    }
+}
+
+impl LoxCallable for LoxFunction {
+    fn call(&self, interpreter: &mut Interpreter, args: &[Value]) -> Result<Value> {
+        let mut env = Environment::enclosing(Rc::clone(&self.env));
+        for (param, arg) in self.parameters.clone().into_iter().zip(args) {
+            match &param.type_ {
+                TT::Identifier(name) => env.define(name, arg),
+                token => panic!("Expected Identifier but got {:?}", token),
+            }
+        }
+
+        match interpreter.exec_block(&self.body, Rc::new(RefCell::new(env))) {
+            Err(RuntimeError::Return(val)) => Ok(val),
+            Err(err) => Err(err),
+            Ok(_) => Ok(Value::Nil),
+        }
+    }
+    fn arity(&self) -> usize {
+        self.parameters.len()
+    }
+    fn name(&self) -> &str {
+        // &self.name.to_string().clone()
+        "uh"
+    }
+}
+
+#[derive(Debug)]
 pub enum RuntimeError {
     RuntimeError(Token, String),
+    Return(Value),
 }
 impl fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -325,6 +399,7 @@ impl fmt::Display for RuntimeError {
             RuntimeError::RuntimeError(token, msg) => {
                 write!(f, "RuntimeError at token {}: {}", token, msg)
             }
+            RuntimeError::Return(val) => write!(f, "Return value: {:?}", val),
         }
     }
 }
@@ -332,6 +407,7 @@ impl error::Error for RuntimeError {
     fn description(&self) -> &str {
         match *self {
             RuntimeError::RuntimeError(_, _) => "RuntimeError",
+            RuntimeError::Return(_) => "Return",
         }
     }
 }
