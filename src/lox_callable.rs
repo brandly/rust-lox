@@ -9,12 +9,12 @@ pub trait LoxCallable: fmt::Debug {
     fn name(&self) -> &str;
 }
 
-impl fmt::Display for LoxCallable {
+impl fmt::Display for dyn LoxCallable {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "<fn {}>", self.name())
     }
 }
-impl PartialEq for LoxCallable {
+impl PartialEq for dyn LoxCallable {
     fn eq(&self, other: &Self) -> bool {
         self.arity() == other.arity() && self.name() == other.name()
     }

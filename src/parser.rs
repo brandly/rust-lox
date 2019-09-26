@@ -81,7 +81,7 @@ impl Parser {
     fn for_statement(&mut self) -> Result<Stmt> {
         self.consume(TT::LeftParen, "Expected '(' after 'for'.".to_string())?;
 
-        let mut initializer;
+        let initializer;
         if let Some(_) = self.match_(vec![TT::Semicolon]) {
             initializer = None;
         } else if let Some(_) = self.match_(vec![TT::Var]) {
