@@ -1,6 +1,6 @@
 # rust-lox
 
-```
+```shell
 $ cargo test
 
 # repl
